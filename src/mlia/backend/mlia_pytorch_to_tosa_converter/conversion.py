@@ -1,0 +1,295 @@
+# SPDX-FileCopyrightText: Copyright 2025-2026, Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+"""Convert PyTorch models to TOSA format using the PyTorch to TOSA converter."""
+
+from __future__ import annotations
+
+import json
+import logging
+import shutil
+from functools import lru_cache
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+from mlia.utils.logging import log_action
+from mlia.utils.proc import OutputConsumer, OutputLogger
+
+
+def _ensure_vendor_installed() -> None:
+    """Ensure vendor-packaged TOSA serialization library is installed."""
+    try:
+        from mlia.backend.mlia_pytorch_to_tosa_converter.install import (
+            get_mlia_pytorch_to_tosa_backend_installation,
+        )
+        from mlia.backend.install import InstallFromVendorPackage
+
+        installation = get_mlia_pytorch_to_tosa_backend_installation()
+        if not installation.already_installed:
+            installation.install(InstallFromVendorPackage())
+    except Exception as exc:  # pragma: no cover - defensive guard
+        raise ImportError(
+            "Failed to prepare PyTorch TOSA converter dependencies."
+        ) from exc
+
+
+@lru_cache(maxsize=1)
+def _get_deps() -> SimpleNamespace:
+    """Import runtime dependencies lazily and cache the result."""
+    _ensure_vendor_installed()
+
+    import torch
+    from executorch.backends.arm.operators.node_visitor import NodeVisitor
+    from executorch.backends.arm.quantizer import TOSAQuantizer
+    from executorch.backends.arm.quantizer import get_symmetric_quantization_config
+    from executorch.backends.arm.tosa.compile_spec import ArmCompileSpec
+    from executorch.backends.arm.tosa.compile_spec import TosaCompileSpec
+    from executorch.backends.arm.tosa.partitioner import TOSAPartitioner
+    from executorch.exir import EdgeCompileConfig
+    from executorch.exir import to_edge_transform_and_lower
+    from torchao.quantization.pt2e.quantize_pt2e import convert_pt2e
+    from torchao.quantization.pt2e.quantize_pt2e import prepare_pt2e
+
+    return SimpleNamespace(
+        torch=torch,
+        get_symmetric_quantization_config=get_symmetric_quantization_config,
+        TOSAQuantizer=TOSAQuantizer,
+        TosaCompileSpec=TosaCompileSpec,
+        ArmCompileSpec=ArmCompileSpec,
+        TOSAPartitioner=TOSAPartitioner,
+        NodeVisitor=NodeVisitor,
+        EdgeCompileConfig=EdgeCompileConfig,
+        to_edge_transform_and_lower=to_edge_transform_and_lower,
+        convert_pt2e=convert_pt2e,
+        prepare_pt2e=prepare_pt2e,
+    )
+
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_TOSA_TARGET = "TOSA-1.0+INT"
+DEFAULT_BASE_NAME = "tosa_simple"
+EXPECTED_OUTPUT_FILENAME = f"output_tag1_{DEFAULT_TOSA_TARGET}.tosa"
+
+
+class MliaPytorchToTosaConverter:
+    """The TOSA Converter For PyTorch class."""
+
+    def __init__(self) -> None:
+        """Set up output consumers for the TOSA Converter For PyTorch."""
+        self.output_consumers: list[OutputConsumer] = [
+            OutputLogger(logger, logging.INFO)
+        ]
+
+    def __call__(self, pytorch_file: Path, output_dir: Path) -> Path:
+        """
+        Run the TOSA Converter For PyTorch with the given PyTorch file.
+
+        Returns the path of the TOSA output file created in the output dir.
+        """
+        if not output_dir.is_dir():
+            raise NotADirectoryError(
+                f"Path '{output_dir}' is not a directory. Unable to run "
+                "TOSA Converter For PyTorch."
+            )
+        with log_action("Running TOSA Converter For PyTorch..."):
+            logger.debug("TOSA Converter For PyTorch:")
+
+            tosa_file = self._run_converter(pytorch_file, output_dir)
+
+            logger.debug("Output file: %s", tosa_file)
+
+        return tosa_file
+
+    def _load_pytorch_model(self, pytorch_file: Path) -> tuple[Any, Any]:
+        """Load PyTorch model and extract graph module and example inputs."""
+        deps = _get_deps()
+
+        # Bandit complains here as torch.export.load() uses pickle internally which
+        # can execute arbitrary code. However this is designed to convert .pt2
+        # files so we have to load them.
+        try:
+            loaded = deps.torch.export.load(pytorch_file)  # nosec B614  # type: ignore[union-attr]
+        except Exception as exc:
+            raise ValueError(
+                f"Failed to load PyTorch export file {pytorch_file}: {exc}"
+            ) from exc
+
+        # Get the GraphModule from ExportedProgram
+        graph_module = loaded.module(check_guards=False)
+        full_example_inputs = loaded.example_inputs
+
+        # Convert from (args, kwargs) format to just args
+        example_inputs = (
+            full_example_inputs[0]
+            if isinstance(full_example_inputs, tuple)
+            else full_example_inputs
+        )
+
+        return graph_module, example_inputs
+
+    def _setup_quantization(self, output_dir: Path, base_name: str) -> tuple[Any, Any]:
+        """Set up TOSA compilation spec and quantizer."""
+        deps = _get_deps()
+
+        # Create a compilation spec describing the target for
+        # configuring the quantizer. Dump intermediate artifacts
+        # (TOSA flat buffers) to specified location
+        compile_spec = deps.TosaCompileSpec(
+            DEFAULT_TOSA_TARGET
+        ).dump_intermediate_artifacts_to(str(output_dir / base_name))
+
+        # Patch NodeVisitor to include node names as location info for debugging
+        self._patch_node_visitor_for_location()
+
+        # Create and configure quantizer to use a symmetric quantization config
+        # globally on all nodes
+        quantizer = deps.TOSAQuantizer(compile_spec)
+        operator_config = deps.get_symmetric_quantization_config()
+        quantizer.set_global(operator_config)
+
+        return compile_spec, quantizer
+
+    def _patch_node_visitor_for_location(self) -> None:
+        """Patch NodeVisitor node names as TOSA operator locations."""
+        try:
+            deps = _get_deps()
+        except ImportError as exc:
+            logger.warning("Could not patch NodeVisitor: %s", exc)
+            return
+
+        try:
+
+            def _serialize_operator_with_node_name(  # type: ignore[no-untyped-def]
+                self,
+                node,
+                tosa_graph,
+                tosa_op,
+                inputs,
+                outputs,
+                attributes=None,
+            ):
+                # Use node name as location for traceability
+                op_location = ""
+
+                # First check if debug_hook is available and active
+                if hasattr(self, "debug_hook") and self.debug_hook:
+                    debug_info = self.debug_hook.add(
+                        node,
+                        tosa_op=outputs[0],
+                        tosa_op_id=tosa_op,
+                    )
+                    # Import to check mode
+                    try:
+                        if self.debug_hook.mode == deps.ArmCompileSpec.DebugMode.TOSA:
+                            op_location = json.dumps(debug_info.to_dict())
+                    except AttributeError:
+                        pass
+
+                # If no location from debug_hook, use node name
+                if not op_location and node and node.name:
+                    op_location = json.dumps({"node_name": node.name})
+
+                tosa_graph.addOperator(
+                    tosa_op,
+                    inputs=inputs,
+                    outputs=outputs,
+                    attributes=attributes,
+                    location=op_location,
+                )
+
+            deps.NodeVisitor._serialize_operator = _serialize_operator_with_node_name
+            logger.debug("Patched NodeVisitor to include node names in TOSA locations")
+
+        except (AttributeError, TypeError) as exc:
+            logger.warning("Could not patch NodeVisitor: %s", exc)
+
+    def _quantize_model(
+        self, graph_module: Any, quantizer: Any, example_inputs: Any
+    ) -> Any:
+        """Perform post-training quantization on the model."""
+        deps = _get_deps()
+
+        quantized_graph_module = deps.prepare_pt2e(graph_module, quantizer)
+        quantized_graph_module(
+            *example_inputs
+        )  # Calibrate the graph module with the example input
+        quantized_graph_module = deps.convert_pt2e(quantized_graph_module)
+
+        # Create a new exported program using the quantized_graph_module
+        return deps.torch.export.export(quantized_graph_module, example_inputs)
+
+    def _lower_to_tosa(self, lowered_exported_program: Any, compile_spec: Any) -> None:
+        """Lower the exported program to the TOSA backend."""
+        deps = _get_deps()
+        partitioner = deps.TOSAPartitioner(compile_spec)
+
+        try:
+            deps.to_edge_transform_and_lower(
+                lowered_exported_program,
+                partitioner=[partitioner],
+                compile_config=deps.EdgeCompileConfig(_check_ir_validity=False),
+            )
+        except Exception as exc:
+            logger.error("Error during lowering to TOSA: %s", exc)
+            logger.debug("Full traceback:", exc_info=True)
+            raise RuntimeError(f"TOSA lowering failed: {exc}") from exc
+
+    def _move_output_file(
+        self, pytorch_file: Path, output_dir: Path, base_name: str
+    ) -> Path:
+        """Move the generated TOSA file to the output location."""
+        tosa_file = output_dir / f"{pytorch_file.stem}.tosa"
+        source_file = output_dir / base_name / EXPECTED_OUTPUT_FILENAME
+
+        try:
+            shutil.move(str(source_file), str(tosa_file))
+        except FileNotFoundError as fnfe:
+            raise FileNotFoundError(
+                f"Expected TOSA output file not found at {source_file}. "
+                "TOSA conversion may have failed."
+            ) from fnfe
+
+        if not tosa_file.is_file():
+            raise FileNotFoundError(
+                "No output from the TOSA Converter For PyTorch found. "
+                f"File {tosa_file} does not exist."
+            )
+
+        logger.debug(
+            "TOSA Converter For PyTorch run successfully. See output: %s", tosa_file
+        )
+        return tosa_file
+
+    def _run_converter(self, pytorch_file: Path, output_dir: Path) -> Path:
+        """Run the TOSA Converter For PyTorch and return the TOSA MLIR output file."""
+        # Validate input file
+        self._validate_input_file(pytorch_file)
+
+        # Step 1: Load the model
+        graph_module, example_inputs = self._load_pytorch_model(pytorch_file)
+
+        # Step 2: Set up quantization
+        compile_spec, quantizer = self._setup_quantization(
+            output_dir, DEFAULT_BASE_NAME
+        )
+
+        # Step 3: Quantize the model
+        lowered_exported_program = self._quantize_model(
+            graph_module, quantizer, example_inputs
+        )
+
+        # Step 4: Lower to TOSA backend
+        self._lower_to_tosa(lowered_exported_program, compile_spec)
+
+        # Step 5: Move output file to final location
+        return self._move_output_file(pytorch_file, output_dir, DEFAULT_BASE_NAME)
+
+    def _validate_input_file(self, pytorch_file: Path) -> None:
+        """Validate input file exists and is a supported format."""
+        if not pytorch_file.is_file():
+            raise FileNotFoundError(f"Input file does not exist: {pytorch_file}")
+        if pytorch_file.suffix != ".pt2":
+            raise ValueError(
+                "Unsupported model file type. Only .pt2 files are supported."
+            )

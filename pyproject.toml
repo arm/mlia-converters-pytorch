@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: Copyright 2026, Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = [
+    "hatchling>=1.27.0",
+    "uv-dynamic-versioning>=0.8.2,<0.9.0"
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "mlia-converters-pytorch"
+dynamic = ["version"]
+description = "ML Inference Advisor PyTorch Converter Plugin"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Arm Ltd", email = "mlia@arm.com"}
+]
+keywords = ["ml", "arm", "pytorch", "tosa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+dependencies = [
+    "mlia>=0.11.0.dev0",
+    "torch==2.9.0",
+    "executorch==1.0.1",
+    "torchao==0.14.0",
+    "ml_dtypes"
+]
+
+[project.urls]
+Homepage = "https://github.com/arm/mlia-pytorch-converters.git"
+
+[project.entry-points."mlia.plugin.converter"]
+pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2ToTosaConverterPlugin"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+# Include implicit namespace packages under src/.
+only-include = ["src/mlia"]
+sources = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/mlia/**",
+    "src/mlia/_vendor/artifacts/**/.sha256",
+    "src/mlia/_vendor/artifacts/**/.sha256.license",
+    "LICENSES/*.txt",
+    "README.md",
+    "hatch_build.py",
+    "pyproject.toml"
+]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+pattern = "default-unprefixed"
+bump = true
+fallback-version = "0.0.0.dev0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.blocklint]
+max_issue_threshold = 1
+blocklist = ["master", "slave", "blacklist", "whitelist", "dummy"]
+wordlist = ["he", "she", "him", "her", "his", "hers"]
+skip_files = ["LICENSES/Apache-2.0.txt", "docs/source/conf.py", "pyproject.toml"]
+
+[tool.mypy]
+# Suppress errors for optional dependencies and cross-repo imports.
+ignore_missing_imports = true
+
+[dependency-groups]
+test = [
+    "pytest==8.3.2",
+    "flaky~=3.8.1",
+    "pytest-cov==5.0.0"
+]
+dev = [
+    {include-group = "test"},
+    "mypy==1.5.1",
+    "pre-commit==4.5.1",
+    "blocklint",
+    "build~=1.2.1",
+    "tomli>=2.0.1; python_version<'3.11'"
+]
