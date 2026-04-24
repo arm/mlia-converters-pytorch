@@ -70,6 +70,36 @@ logger = logging.getLogger(__name__)
 DEFAULT_TOSA_TARGET = "TOSA-1.0+INT"
 DEFAULT_BASE_NAME = "tosa_simple"
 EXPECTED_OUTPUT_FILENAME = f"output_tag1_{DEFAULT_TOSA_TARGET}.tosa"
+DIRECT_LOWERING_UNSUPPORTED = "direct_lowering_unsupported"
+
+
+class DirectLoweringUnsupportedError(RuntimeError):
+    """Raised when direct lowering of an exported program is unsupported."""
+
+    error_code = DIRECT_LOWERING_UNSUPPORTED
+
+
+def _is_known_direct_lowering_failure(exc: RuntimeError) -> bool:
+    """Return whether the runtime error matches the known direct-lowering failure."""
+    # ExecuTorch currently surfaces unsupported direct lowering as a plain
+    # RuntimeError, so keep this narrow compatibility check until a structured
+    # upstream signal is available.
+    lowering_failure_prefix = "TOSA lowering failed:"
+    direct_lowering_unsupported_marker = "was not decomposed or delegated"
+    current: BaseException | None = exc
+    while current is not None:
+        message = str(current)
+        if current is exc and (
+            lowering_failure_prefix in message
+            and direct_lowering_unsupported_marker in message
+        ):
+            return True
+        if current is not exc and direct_lowering_unsupported_marker in message:
+            return True
+        current = (
+            current.__cause__ if isinstance(current.__cause__, BaseException) else None
+        )
+    return False
 
 
 class MliaPytorchToTosaConverter:
@@ -81,11 +111,29 @@ class MliaPytorchToTosaConverter:
             OutputLogger(logger, logging.INFO)
         ]
 
-    def __call__(self, pytorch_file: Path, output_dir: Path) -> Path:
+    def __call__(
+        self,
+        pytorch_file: Path,
+        output_dir: Path,
+        *,
+        enable_quantization: bool = True,
+    ) -> Path:
         """
         Run the TOSA Converter For PyTorch with the given PyTorch file.
 
-        Returns the path of the TOSA output file created in the output dir.
+        Args:
+            pytorch_file: Exported PyTorch program to convert.
+            output_dir: Directory where the converted TOSA file will be written.
+            enable_quantization: When True, run the PTQ flow before lowering.
+                When False, skip PTQ and attempt direct PT2-to-TOSA lowering.
+
+        Returns:
+            The path of the TOSA output file created in the output dir.
+
+        Raises:
+            NotADirectoryError: If output_dir is not a directory.
+            DirectLoweringUnsupportedError: If PTQ is disabled and the exported
+                program cannot be lowered directly to TOSA.
         """
         if not output_dir.is_dir():
             raise NotADirectoryError(
@@ -95,26 +143,33 @@ class MliaPytorchToTosaConverter:
         with log_action("Running TOSA Converter For PyTorch..."):
             logger.debug("TOSA Converter For PyTorch:")
 
-            tosa_file = self._run_converter(pytorch_file, output_dir)
+            tosa_file = self._run_converter(
+                pytorch_file,
+                output_dir,
+                enable_quantization=enable_quantization,
+            )
 
             logger.debug("Output file: %s", tosa_file)
 
         return tosa_file
 
-    def _load_pytorch_model(self, pytorch_file: Path) -> tuple[Any, Any]:
-        """Load PyTorch model and extract graph module and example inputs."""
+    def _load_exported_program(self, pytorch_file: Path) -> Any:
+        """Load the exported PyTorch program from disk."""
         deps = _get_deps()
 
         # Bandit complains here as torch.export.load() uses pickle internally which
         # can execute arbitrary code. However this is designed to convert .pt2
         # files so we have to load them.
         try:
-            loaded = deps.torch.export.load(pytorch_file)  # nosec B614  # type: ignore[union-attr]
+            return deps.torch.export.load(pytorch_file)  # nosec B614  # type: ignore[union-attr]
         except Exception as exc:
             raise ValueError(
                 f"Failed to load PyTorch export file {pytorch_file}: {exc}"
             ) from exc
 
+    @staticmethod
+    def _extract_graph_module_and_example_inputs(loaded: Any) -> tuple[Any, Any]:
+        """Extract graph module and example inputs from an exported program."""
         # Get the GraphModule from ExportedProgram
         graph_module = loaded.module(check_guards=False)
         full_example_inputs = loaded.example_inputs
@@ -128,19 +183,38 @@ class MliaPytorchToTosaConverter:
 
         return graph_module, example_inputs
 
-    def _setup_quantization(self, output_dir: Path, base_name: str) -> tuple[Any, Any]:
-        """Set up TOSA compilation spec and quantizer."""
-        deps = _get_deps()
+    def _load_pytorch_model(self, pytorch_file: Path) -> tuple[Any, Any]:
+        """Load PyTorch model and extract graph module and example inputs."""
+        loaded = self._load_exported_program(pytorch_file)
+        return self._extract_graph_module_and_example_inputs(loaded)
 
-        # Create a compilation spec describing the target for
-        # configuring the quantizer. Dump intermediate artifacts
-        # (TOSA flat buffers) to specified location
+    def _create_compile_spec(
+        self,
+        output_dir: Path,
+        base_name: str,
+        *,
+        deps: Any | None = None,
+    ) -> Any:
+        """Create the TOSA compilation spec and patch debug locations."""
+        if deps is None:
+            deps = _get_deps()
+
         compile_spec = deps.TosaCompileSpec(
             DEFAULT_TOSA_TARGET
         ).dump_intermediate_artifacts_to(str(output_dir / base_name))
 
-        # Patch NodeVisitor to include node names as location info for debugging
         self._patch_node_visitor_for_location()
+        return compile_spec
+
+    def _setup_quantization(self, output_dir: Path, base_name: str) -> tuple[Any, Any]:
+        """Set up TOSA compilation spec and quantizer."""
+        deps = _get_deps()
+
+        compile_spec = self._create_compile_spec(
+            output_dir,
+            base_name,
+            deps=deps,
+        )
 
         # Create and configure quantizer to use a symmetric quantization config
         # globally on all nodes
@@ -261,28 +335,50 @@ class MliaPytorchToTosaConverter:
         )
         return tosa_file
 
-    def _run_converter(self, pytorch_file: Path, output_dir: Path) -> Path:
-        """Run the TOSA Converter For PyTorch and return the TOSA MLIR output file."""
+    def _run_converter(
+        self,
+        pytorch_file: Path,
+        output_dir: Path,
+        *,
+        enable_quantization: bool = True,
+    ) -> Path:
+        """Run the TOSA converter with optional post-training quantization."""
         # Validate input file
         self._validate_input_file(pytorch_file)
 
         # Step 1: Load the model
-        graph_module, example_inputs = self._load_pytorch_model(pytorch_file)
+        loaded_exported_program = self._load_exported_program(pytorch_file)
 
-        # Step 2: Set up quantization
-        compile_spec, quantizer = self._setup_quantization(
-            output_dir, DEFAULT_BASE_NAME
-        )
+        if enable_quantization:
+            # Step 2: Set up compilation spec and quantization.
+            graph_module, example_inputs = (
+                self._extract_graph_module_and_example_inputs(loaded_exported_program)
+            )
+            compile_spec, quantizer = self._setup_quantization(
+                output_dir, DEFAULT_BASE_NAME
+            )
+            lowered_exported_program = self._quantize_model(
+                graph_module, quantizer, example_inputs
+            )
+        else:
+            # Reuse the loaded exported program directly when PTQ is disabled.
+            compile_spec = self._create_compile_spec(output_dir, DEFAULT_BASE_NAME)
+            lowered_exported_program = loaded_exported_program
+            try:
+                self._lower_to_tosa(lowered_exported_program, compile_spec)
+            except RuntimeError as exc:
+                if _is_known_direct_lowering_failure(exc):
+                    raise DirectLoweringUnsupportedError(
+                        "Direct PT2-to-TOSA lowering is unsupported for this "
+                        f"exported program. Details: {exc}"
+                    ) from exc
+                raise
+            return self._move_output_file(pytorch_file, output_dir, DEFAULT_BASE_NAME)
 
-        # Step 3: Quantize the model
-        lowered_exported_program = self._quantize_model(
-            graph_module, quantizer, example_inputs
-        )
-
-        # Step 4: Lower to TOSA backend
+        # Step 3: Lower to TOSA backend
         self._lower_to_tosa(lowered_exported_program, compile_spec)
 
-        # Step 5: Move output file to final location
+        # Step 4: Move output file to final location
         return self._move_output_file(pytorch_file, output_dir, DEFAULT_BASE_NAME)
 
     def _validate_input_file(self, pytorch_file: Path) -> None:

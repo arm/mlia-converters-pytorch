@@ -15,9 +15,18 @@ import pytest
 import mlia.backend.mlia_pytorch_to_tosa_converter.conversion as conv_module
 from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
     DEFAULT_BASE_NAME,
+    DIRECT_LOWERING_UNSUPPORTED,
     EXPECTED_OUTPUT_FILENAME,
     MliaPytorchToTosaConverter,
 )
+
+
+def _raise_wrapped_direct_lowering_failure(*_args: object, **_kwargs: object) -> None:
+    """Raise the wrapped ExecuTorch lowering failure shape used by the converter."""
+    try:
+        raise RuntimeError("Node test_op was not decomposed or delegated.")
+    except RuntimeError as cause:
+        raise RuntimeError(f"TOSA lowering failed: {cause}") from cause
 
 
 def test_converter_validates_inputs() -> None:
@@ -106,6 +115,33 @@ def test_full_conversion_process(
         mock_deps.TOSAQuantizer.assert_called_once()
         mock_deps.to_edge_transform_and_lower.assert_called_once()
         assert result == output_dir / "model.tosa"
+
+
+def test_converter_forwards_enable_quantization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test converter forwards enable_quantization to the runner."""
+    converter = MliaPytorchToTosaConverter()
+    mock_run = MagicMock(return_value=Path("/tmp/model.tosa"))
+    monkeypatch.setattr(converter, "_run_converter", mock_run)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_file = Path(tmpdir) / "model.pt2"
+        input_file.write_text("test", encoding="utf-8")
+        output_dir = Path(tmpdir)
+
+        result = converter(
+            input_file,
+            output_dir,
+            enable_quantization=False,
+        )
+
+    mock_run.assert_called_once_with(
+        input_file,
+        output_dir,
+        enable_quantization=False,
+    )
+    assert result == Path("/tmp/model.tosa")
 
 
 def test_load_model_failure(mock_deps: SimpleNamespace) -> None:
@@ -279,15 +315,40 @@ def test_run_converter_validates_file_is_file() -> None:
             converter._run_converter(fake_file, output_dir)
 
 
+def test_known_direct_lowering_failure_matches_wrapped_runtime_error() -> None:
+    """Known ExecuTorch direct-lowering failures should match the classifier."""
+    with pytest.raises(RuntimeError) as exc_info:
+        _raise_wrapped_direct_lowering_failure()
+
+    assert conv_module._is_known_direct_lowering_failure(exc_info.value)
+
+
+def test_known_direct_lowering_failure_matches_cause_marker_only() -> None:
+    """Cause-chain matching should work even when the outer message is generic."""
+    try:
+        raise RuntimeError("Node test_op was not decomposed or delegated.")
+    except RuntimeError as cause:
+        exc = RuntimeError("outer wrapper")
+        exc.__cause__ = cause
+
+    assert conv_module._is_known_direct_lowering_failure(exc)
+
+
+def test_unexpected_lowering_failure_does_not_match_classifier() -> None:
+    """Unrelated runtime failures should not match the direct-lowering classifier."""
+    exc = RuntimeError("unexpected converter bug")
+
+    assert not conv_module._is_known_direct_lowering_failure(exc)
+    assert DIRECT_LOWERING_UNSUPPORTED == "direct_lowering_unsupported"
+
+
 def test_setup_quantization(
     mock_deps: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test quantization setup creates compile spec and quantizer correctly."""
-    mock_compile_spec_inst = Mock()
-    mock_compile_spec_inst.dump_intermediate_artifacts_to.return_value = (
-        mock_compile_spec_inst
-    )
-    mock_deps.TosaCompileSpec.return_value = mock_compile_spec_inst
+    mock_compile_spec = Mock()
+    mock_create_compile_spec = MagicMock(return_value=mock_compile_spec)
 
     mock_quantizer_inst = Mock()
     mock_deps.TOSAQuantizer.return_value = mock_quantizer_inst
@@ -296,6 +357,7 @@ def test_setup_quantization(
     mock_deps.get_symmetric_quantization_config.return_value = mock_operator_config
 
     converter = MliaPytorchToTosaConverter()
+    monkeypatch.setattr(converter, "_create_compile_spec", mock_create_compile_spec)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_dir = Path(tmpdir)
@@ -303,9 +365,12 @@ def test_setup_quantization(
 
         _compile_spec, _quantizer = converter._setup_quantization(output_dir, base_name)
 
-        mock_deps.TosaCompileSpec.assert_called_once()
-        mock_compile_spec_inst.dump_intermediate_artifacts_to.assert_called_once()
-        mock_deps.TOSAQuantizer.assert_called_once_with(mock_compile_spec_inst)
+        mock_create_compile_spec.assert_called_once_with(
+            output_dir,
+            base_name,
+            deps=mock_deps,
+        )
+        mock_deps.TOSAQuantizer.assert_called_once_with(mock_compile_spec)
         mock_quantizer_inst.set_global.assert_called_once_with(mock_operator_config)
 
 
