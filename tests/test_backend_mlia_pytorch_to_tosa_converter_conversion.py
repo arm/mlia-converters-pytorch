@@ -13,6 +13,10 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 import mlia.backend.mlia_pytorch_to_tosa_converter.conversion as conv_module
+from mlia.backend.pytorch_export_converter import (
+    load_exported_program,
+    validate_input_file,
+)
 from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
     DEFAULT_BASE_NAME,
     DIRECT_LOWERING_UNSUPPORTED,
@@ -29,22 +33,31 @@ def _raise_wrapped_direct_lowering_failure(*_args: object, **_kwargs: object) ->
         raise RuntimeError(f"TOSA lowering failed: {cause}") from cause
 
 
-def test_converter_validates_inputs() -> None:
-    """Test converter validates input file and output directory."""
+def test_converter_fails_when_input_is_not_pt2(tmp_path: Path) -> None:
+    """Test converter rejects non-pt2 input files."""
+    txt_file = tmp_path / "model.txt"
+    txt_file.write_text("test")
+
+    with pytest.raises(ValueError, match="Only .pt2 files are supported"):
+        validate_input_file(txt_file)
+
+
+def test_converter_fails_when_input_is_not_a_file(tmp_path: Path) -> None:
+    """Test converter rejects missing input files."""
+    missing_file = tmp_path / "model.pt2"
+
+    with pytest.raises(FileNotFoundError, match="Input file does not exist"):
+        validate_input_file(missing_file)
+
+
+def test_converter_fails_when_output_dir_is_not_a_directory(tmp_path: Path) -> None:
+    """Test converter rejects nonexistent output directories."""
     converter = MliaPytorchToTosaConverter()
+    pt2_file = tmp_path / "model.pt2"
+    pt2_file.write_text("test")
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Invalid file format
-        txt_file = Path(tmpdir) / "model.txt"
-        txt_file.write_text("test")
-        with pytest.raises(ValueError, match="Only .pt2 files are supported"):
-            converter._validate_input_file(txt_file)
-
-        # Nonexistent output directory
-        pt2_file = Path(tmpdir) / "model.pt2"
-        pt2_file.write_text("test")
-        with pytest.raises(NotADirectoryError):
-            converter(pt2_file, Path(tmpdir) / "nonexistent")
+    with pytest.raises(NotADirectoryError):
+        converter(pt2_file, tmp_path / "nonexistent")
 
 
 @pytest.fixture()
@@ -147,14 +160,13 @@ def test_converter_forwards_enable_quantization(
 def test_load_model_failure(mock_deps: SimpleNamespace) -> None:
     """Test model loading handles errors."""
     mock_deps.torch.export.load.side_effect = RuntimeError("Load failed")
-    converter = MliaPytorchToTosaConverter()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         input_file = Path(tmpdir) / "model.pt2"
         input_file.write_text("test", encoding="utf-8")
 
         with pytest.raises(ValueError, match="Failed to load PyTorch export file"):
-            converter._load_pytorch_model(input_file)
+            load_exported_program(mock_deps.torch, input_file)
 
 
 def test_lowering_failure(mock_deps: SimpleNamespace) -> None:
@@ -483,7 +495,11 @@ def test_load_pytorch_model_input_formats(
         pt2_file = Path(tmpdir) / "model.pt2"
         pt2_file.write_text("test", encoding="utf-8")
 
-        graph_module, result_inputs = converter._load_pytorch_model(pt2_file)
+        graph_module, result_inputs = (
+            converter._extract_graph_module_and_example_inputs(
+                load_exported_program(mock_deps.torch, pt2_file)
+            )
+        )
 
         assert graph_module == mock_graph_module
         if isinstance(example_inputs, tuple):

@@ -33,6 +33,7 @@ dependencies = [
     "torch==2.9.0",
     "executorch==1.0.1",
     "torchao==0.14.0",
+    "ethos-u-vela==5.0.0",
     "ml_dtypes"
 ]
 
@@ -41,6 +42,7 @@ Homepage = "https://github.com/arm/mlia-pytorch-converters.git"
 
 [project.entry-points."mlia.plugin.converter"]
 pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2ToTosaConverterPlugin"
+pt2_to_pte = "mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin:PT2ToPteConverterPlugin"
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
@@ -84,6 +86,7 @@ skip_files = ["LICENSES/Apache-2.0.txt", "docs/source/conf.py", "pyproject.toml"
 [tool.mypy]
 # Suppress errors for optional dependencies and cross-repo imports.
 ignore_missing_imports = true
+explicit_package_bases = true
 
 [dependency-groups]
 test = [

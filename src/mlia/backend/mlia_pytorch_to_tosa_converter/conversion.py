@@ -12,8 +12,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from mlia.utils.logging import log_action
-from mlia.utils.proc import OutputConsumer, OutputLogger
+from mlia.backend.pytorch_export_converter import (
+    load_exported_program,
+    validate_input_file,
+)
+from mlia.utils.proc import OutputLogger
 
 
 def _ensure_vendor_installed() -> None:
@@ -105,11 +108,13 @@ def _is_known_direct_lowering_failure(exc: RuntimeError) -> bool:
 class MliaPytorchToTosaConverter:
     """The TOSA Converter For PyTorch class."""
 
+    converter_name = "TOSA Converter For PyTorch"
+
     def __init__(self) -> None:
         """Set up output consumers for the TOSA Converter For PyTorch."""
-        self.output_consumers: list[OutputConsumer] = [
-            OutputLogger(logger, logging.INFO)
-        ]
+        self._logger = logger
+        logging.getLogger("mlia").propagate = False
+        self.output_consumers = [OutputLogger(logger, logging.INFO)]
 
     def __call__(
         self,
@@ -119,53 +124,23 @@ class MliaPytorchToTosaConverter:
         enable_quantization: bool = True,
     ) -> Path:
         """
-        Run the TOSA Converter For PyTorch with the given PyTorch file.
+        Run the converter with the given PyTorch file.
 
-        Args:
-            pytorch_file: Exported PyTorch program to convert.
-            output_dir: Directory where the converted TOSA file will be written.
-            enable_quantization: When True, run the PTQ flow before lowering.
-                When False, skip PTQ and attempt direct PT2-to-TOSA lowering.
-
-        Returns:
-            The path of the TOSA output file created in the output dir.
-
-        Raises:
-            NotADirectoryError: If output_dir is not a directory.
-            DirectLoweringUnsupportedError: If PTQ is disabled and the exported
-                program cannot be lowered directly to TOSA.
+        Returns the path of the output file created in the output dir.
         """
         if not output_dir.is_dir():
             raise NotADirectoryError(
                 f"Path '{output_dir}' is not a directory. Unable to run "
-                "TOSA Converter For PyTorch."
-            )
-        with log_action("Running TOSA Converter For PyTorch..."):
-            logger.debug("TOSA Converter For PyTorch:")
-
-            tosa_file = self._run_converter(
-                pytorch_file,
-                output_dir,
-                enable_quantization=enable_quantization,
+                f"{self.converter_name}."
             )
 
-            logger.debug("Output file: %s", tosa_file)
+        tosa_file = self._run_converter(
+            pytorch_file,
+            output_dir,
+            enable_quantization=enable_quantization,
+        )
 
         return tosa_file
-
-    def _load_exported_program(self, pytorch_file: Path) -> Any:
-        """Load the exported PyTorch program from disk."""
-        deps = _get_deps()
-
-        # Bandit complains here as torch.export.load() uses pickle internally which
-        # can execute arbitrary code. However this is designed to convert .pt2
-        # files so we have to load them.
-        try:
-            return deps.torch.export.load(pytorch_file)  # nosec B614  # type: ignore[union-attr]
-        except Exception as exc:
-            raise ValueError(
-                f"Failed to load PyTorch export file {pytorch_file}: {exc}"
-            ) from exc
 
     @staticmethod
     def _extract_graph_module_and_example_inputs(loaded: Any) -> tuple[Any, Any]:
@@ -182,11 +157,6 @@ class MliaPytorchToTosaConverter:
         )
 
         return graph_module, example_inputs
-
-    def _load_pytorch_model(self, pytorch_file: Path) -> tuple[Any, Any]:
-        """Load PyTorch model and extract graph module and example inputs."""
-        loaded = self._load_exported_program(pytorch_file)
-        return self._extract_graph_module_and_example_inputs(loaded)
 
     def _create_compile_spec(
         self,
@@ -305,8 +275,6 @@ class MliaPytorchToTosaConverter:
                 compile_config=deps.EdgeCompileConfig(_check_ir_validity=False),
             )
         except Exception as exc:
-            logger.error("Error during lowering to TOSA: %s", exc)
-            logger.debug("Full traceback:", exc_info=True)
             raise RuntimeError(f"TOSA lowering failed: {exc}") from exc
 
     def _move_output_file(
@@ -344,10 +312,11 @@ class MliaPytorchToTosaConverter:
     ) -> Path:
         """Run the TOSA converter with optional post-training quantization."""
         # Validate input file
-        self._validate_input_file(pytorch_file)
+        validate_input_file(pytorch_file)
 
         # Step 1: Load the model
-        loaded_exported_program = self._load_exported_program(pytorch_file)
+        deps = _get_deps()
+        loaded_exported_program = load_exported_program(deps.torch, pytorch_file)
 
         if enable_quantization:
             # Step 2: Set up compilation spec and quantization.
@@ -380,12 +349,3 @@ class MliaPytorchToTosaConverter:
 
         # Step 4: Move output file to final location
         return self._move_output_file(pytorch_file, output_dir, DEFAULT_BASE_NAME)
-
-    def _validate_input_file(self, pytorch_file: Path) -> None:
-        """Validate input file exists and is a supported format."""
-        if not pytorch_file.is_file():
-            raise FileNotFoundError(f"Input file does not exist: {pytorch_file}")
-        if pytorch_file.suffix != ".pt2":
-            raise ValueError(
-                "Unsupported model file type. Only .pt2 files are supported."
-            )
