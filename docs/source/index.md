@@ -12,6 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 ## Included plugins
 
 - Use `pt2_to_tosa` as the PyTorch-to-TOSA converter backend.
+- Use `pt2_to_pte` as the PyTorch-to-PTE converter backend.
 
 ## Documentation Map
 

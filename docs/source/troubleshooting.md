@@ -17,7 +17,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - This repo is intended for `.pt2` PyTorch export artifacts.
 - If the model is not a valid export artifact, the conversion path can fail
-  before downstream analysis begins
+  before downstream analysis begins.
 
 ## Conversion-specific issues
 
@@ -26,6 +26,33 @@ SPDX-License-Identifier: Apache-2.0
 - Reduce the problem to a smaller known-good exported model if possible.
 - Check whether the model uses patterns that are awkward for the converter path.
 - Treat the failure as a conversion issue first, not a target-performance issue.
+
+### Wrong conversion route for the downstream backend
+
+- Use `pt2_to_tosa` when the downstream backend expects TOSA.
+- Use `pt2_to_pte` when the downstream backend expects an ExecuTorch `.pte`
+  artifact.
+- If the downstream backend never sees the artifact shape it expects, confirm
+  the selected converter route before debugging target behaviour.
+
+### Direct TOSA lowering fails when quantization is disabled
+
+- The TOSA route can be called with `enable_quantization=False`, which skips
+  the default post-training quantization step and tries to lower the exported
+  program directly.
+- That direct-lowering path supports fewer models than the default quantized
+  route, so a failure there does not automatically mean the normal TOSA path is
+  broken.
+- If you hit a direct-lowering failure, rerun with the default quantized path
+  first. If the quantized route succeeds, treat the problem as a
+  direct-lowering limitation rather than a general converter failure.
+
+### PTE conversion fails because target configuration is incomplete
+
+- The PTE route requires an ExecuTorch target configuration with the exact
+  fields `target`, `mac`, `system_config`, and `memory_mode`.
+- If those values are missing, fix the downstream target configuration before
+  debugging model structure.
 
 ### Downstream backend never receives a usable artifact
 
@@ -38,9 +65,9 @@ SPDX-License-Identifier: Apache-2.0
 ### PyTorch-side dependency mismatch
 
 - Recreate the environment and reinstall dependencies from the repo's declared
-  configuration
+  configuration.
 - Check whether the active environment contains the expected versions of
-  `torch`, `executorch`, and related packages
+  `torch`, `executorch`, and related packages.
 
 ## Escalation path
 

@@ -7,16 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This repository is a converter plugin. Its job is to accept a supported input
-model, produce a conversion-stage artifact, and hand that artifact to a later
-MLIA backend. That means the important outputs here are conversion results and
-diagnostics, not final target metrics.
+This repository is a converter plugin package. Its job is to accept a supported
+input model, produce a conversion-stage artifact, and hand that artifact to a
+later MLIA backend. That means the important outputs here are conversion
+results and diagnostics, not final target metrics.
 
-## What this converter contributes
+## What this repo contributes
 
-In a successful workflow, this converter contributes:
+In a successful workflow, this repo contributes:
 
-- A TOSA-oriented intermediate representation derived from a `.pt2` input.
+- A `.tosa` or `.pte` artifact derived from a `.pt2` input.
 - Conversion-stage logs or diagnostics during the MLIA run.
 - Artifacts that downstream backends can consume for further analysis.
 
@@ -25,7 +25,8 @@ In a successful workflow, this converter contributes:
 A successful end-to-end run usually looks like this:
 
 1. The `.pt2` model is accepted.
-2. The converter produces an intermediate artifact.
+2. The converter produces the expected intermediate artifact for the selected
+   route.
 3. A downstream backend consumes that artifact.
 4. The final user-facing metrics come from the downstream backend.
 
@@ -41,6 +42,7 @@ that runs after conversion.
 The most useful signals in this repo are usually:
 
 - Whether the `.pt2` model was accepted and converted.
+- Whether the chosen route produced the expected `.tosa` or `.pte` output.
 - Whether the produced artifact could be consumed by the next backend.
 - Whether operator mapping or lowering failed during conversion.
 - Whether the failure happened during conversion or after conversion completed.
