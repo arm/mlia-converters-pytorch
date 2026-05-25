@@ -63,6 +63,12 @@ jobs:
   publish_release:
     name: Publish Release
     needs: build_and_test_wheel
+    if: >-
+      ${{
+        always() &&
+        needs.build_and_test_wheel.result == 'success' &&
+        (github.repository_owner != 'arm' || github.ref_type == 'tag')
+      }}
     runs-on: ["${{ vars.UBUNTU_RUNNER }}", "X64"]
     steps:
       - uses: actions/checkout@v4
