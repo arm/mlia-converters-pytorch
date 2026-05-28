@@ -90,5 +90,5 @@ jobs:
     if: ${{ github.event.repository.private }}
     uses: Arm-Debug/github-workflow-wizardry/.github/workflows/sync-to-public-repo.yml@main
     with:
-      public_repo: arm/mlia-pytorch-converters
+      public_repo: arm/mlia-converters-pytorch
     secrets: inherit
