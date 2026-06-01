@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from mlia.backend.pytorch_export_converter import (
+from mlia.backend.pytorch_export_input import (
     load_exported_program,
     validate_input_file,
 )

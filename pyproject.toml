@@ -43,6 +43,7 @@ Homepage = "https://github.com/arm/mlia-pytorch-converters.git"
 [project.entry-points."mlia.plugin.converter"]
 pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2ToTosaConverterPlugin"
 pt2_to_pte = "mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin:PT2ToPteConverterPlugin"
+pte_to_delegate = "mlia.backend.mlia_pte_to_delegate_converter.converter_plugin:PteToDelegateConverterPlugin"
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"

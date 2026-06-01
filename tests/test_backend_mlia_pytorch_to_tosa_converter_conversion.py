@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 import mlia.backend.mlia_pytorch_to_tosa_converter.conversion as conv_module
-from mlia.backend.pytorch_export_converter import (
+from mlia.backend.pytorch_export_input import (
     load_exported_program,
     validate_input_file,
 )

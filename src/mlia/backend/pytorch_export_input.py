@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2026, Arm Limited and/or its affiliates.
 # SPDX-License-Identifier: Apache-2.0
-"""Shared helpers for PyTorch exported-program converters."""
+"""Shared input support for PyTorch exported-program converters."""
 
 from __future__ import annotations
 

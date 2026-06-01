@@ -16,7 +16,7 @@ def get_mlia_pytorch_to_tosa_backend_installation() -> Installation:
         name="mlia-pytorch-to-tosa-converter",
         description="Tool to serialize and deserialize TOSA files",
         packages_to_install=[],
-        packages_to_uninstall=["tosa_serialization_lib"],
+        packages_to_uninstall=[],
         expected_packages=["tosa_serialization_lib", "executorch"],
         vendor_path="tosa-tools",
     )
