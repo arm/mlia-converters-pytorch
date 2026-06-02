@@ -18,6 +18,7 @@ plugin entry-point system.
 - [Repository contents](#repository-contents)
 - [Installation](#installation)
 - [How MLIA uses this plugin](#how-mlia-uses-this-plugin)
+- [Reporting bugs](#reporting-bugs)
 - [Development (uv)](#development-uv)
 - [Documentation](#documentation)
 
@@ -87,6 +88,15 @@ That means downstream MLIA components can:
 - treat the converters as a separately versioned plugin package.
 
 For more implementation detail, see [docs/README.md](docs/README.md).
+
+## Reporting bugs
+
+Report bugs by creating GitHub issues. Use the
+[`arm/mlia` issue tracker](https://github.com/arm/mlia/issues) by default.
+
+Only open an issue in
+[`arm/mlia-converters-pytorch`](https://github.com/arm/mlia-converters-pytorch/issues)
+when the bug is clearly and specifically in this PyTorch converter plugin.
 
 ## Development (uv)
 
