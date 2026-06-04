@@ -114,11 +114,15 @@ class CustomBuildHook(BuildHookInterface):
         wheel_path = vendor_dir / expected_name
 
         target_rel = "mlia/_vendor/artifacts/tosa-tools"
+        force_include[str(wheel_path)] = f"{target_rel}/{expected_name}"
         try:
-            source_rel = vendor_dir.relative_to(root)
+            vendor_dir.relative_to(src_root)
         except ValueError:
-            source_rel = vendor_dir
-        force_include[str(source_rel)] = target_rel
+            try:
+                source_rel = vendor_dir.relative_to(root)
+            except ValueError:
+                source_rel = vendor_dir
+            force_include[str(source_rel)] = target_rel
 
         if wheel_path.exists():
             actual_sha = _file_sha256(wheel_path)
