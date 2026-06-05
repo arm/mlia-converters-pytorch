@@ -21,6 +21,7 @@ registers the converter keys `pt2_to_tosa`, `pt2_to_pte`, and
 - [Reporting bugs](#reporting-bugs)
 - [Development (uv)](#development-uv)
 - [Documentation](#documentation)
+- [Trademarks and copyrights](#trademarks-and-copyrights)
 
 ## Overview
 
@@ -155,3 +156,10 @@ repo lacks equivalent tooling (for example, pre-commit configuration).
   `mlia check`.
 - [Troubleshooting](docs/source/troubleshooting.md): common converter failures
   and debug steps.
+
+## Trademarks and copyrights
+
+- Arm and Arm Ethos-U are registered trademarks or trademarks of Arm Limited (or its subsidiaries) in the U.S. and/or elsewhere.
+- PyTorch and ExecuTorch are trademarks of The Linux Foundation.
+- Linux is the registered trademark of Linus Torvalds in the U.S. and elsewhere.
+- Python is a registered trademark of the PSF.
