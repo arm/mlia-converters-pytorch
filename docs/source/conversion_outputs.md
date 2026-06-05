@@ -16,15 +16,15 @@ results and diagnostics, not final target metrics.
 
 In a successful workflow, this repo contributes:
 
-- A `.tosa` or `.pte` artifact derived from a `.pt2` input.
+- The expected intermediate artifact for the selected converter route.
 - Conversion-stage logs or diagnostics during the MLIA run.
 - Artifacts that downstream backends can consume for further analysis.
 
 ## What success looks like
 
-A successful end-to-end run usually looks like this:
+A successful conversion result usually means:
 
-1. The `.pt2` model is accepted.
+1. The `.pt2` model or `.pte` artifact is accepted.
 2. The converter produces the expected intermediate artifact for the selected
    route.
 3. A downstream backend consumes that artifact.
@@ -41,10 +41,13 @@ that runs after conversion.
 
 The most useful signals in this repo are usually:
 
-- Whether the `.pt2` model was accepted and converted.
-- Whether the chosen route produced the expected `.tosa` or `.pte` output.
-- Whether the produced artifact could be consumed by the next backend.
+- Whether the `.pt2` model or `.pte` artifact was accepted and converted.
+- Whether the selected route produced the expected artifact shape described in
+  [conversion_flow.md](conversion_flow.md).
+- Whether the produced artifact was handed to the next backend.
 - Whether operator mapping or lowering failed during conversion.
+- Whether delegation or delegate extraction failed.
+- Whether artifact writing failed.
 - Whether the failure happened during conversion or after conversion completed.
 
 ## How to interpret failures

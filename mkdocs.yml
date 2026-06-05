@@ -33,6 +33,5 @@ nav:
   - Usage and Integration: usage.md
   - Conversion Flow: conversion_flow.md
   - Conversion Outputs and Diagnostics: conversion_outputs.md
-  - CLI: cli.md
   - Troubleshooting: troubleshooting.md
   - Development: development.md

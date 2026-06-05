@@ -5,6 +5,21 @@ SPDX-License-Identifier: Apache-2.0
 
 # Troubleshooting
 
+## Practical debugging sequence
+
+When a PyTorch-driven run fails:
+
+1. Confirm the input is a supported `.pt2` export artifact, or a `.pte` artifact
+   for the `pte_to_delegate` route.
+2. Confirm the selected converter route matches what the downstream backend
+   expects.
+3. Confirm `mlia-converters-pytorch`, the downstream target plugin, and the
+   backend plugin are installed in the active Python environment.
+4. Rerun the same `mlia check` command with `--debug` to inspect converter
+   selection and conversion logs.
+5. Inspect the wider MLIA error output rather than expecting a separate
+   converter CLI.
+
 ## General issues
 
 ### Converter plugin not available
@@ -15,7 +30,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ### Wrong input type
 
-- This repo is intended for `.pt2` PyTorch export artifacts.
+- This repo supports `.pt2` PyTorch export artifacts, and ExecuTorch `.pte`
+  artifacts when using the `pte_to_delegate` route.
 - If the model is not a valid export artifact, the conversion path can fail
   before downstream analysis begins.
 
@@ -32,6 +48,8 @@ SPDX-License-Identifier: Apache-2.0
 - Use `pt2_to_tosa` when the downstream backend expects TOSA.
 - Use `pt2_to_pte` when the downstream backend expects an ExecuTorch `.pte`
   artifact.
+- Use `pte_to_delegate` when the downstream backend expects the TOSA or VGF
+  delegate payload stored inside an ExecuTorch `.pte` artifact.
 - If the downstream backend never sees the artifact shape it expects, confirm
   the selected converter route before debugging target behaviour.
 
@@ -54,11 +72,24 @@ SPDX-License-Identifier: Apache-2.0
 - If those values are missing, fix the downstream target configuration before
   debugging model structure.
 
+### PTE delegate extraction fails
+
+- Confirm the active environment contains compatible ExecuTorch PTE
+  deserialization support.
+- Confirm the input is a serialized ExecuTorch `.pte` artifact, not an
+  arbitrary binary file.
+- The current extractor expects exactly one execution plan and exactly one
+  backend delegate.
+- The supported backend delegate IDs are `TOSABackend` and `VgfBackend`.
+- If the delegate ID is supported but extraction still fails, check whether the
+  stored payload is a valid TOSA flatbuffer or VGF file.
+
 ### Downstream backend never receives a usable artifact
 
 - Inspect the run output and logs to confirm whether conversion finished.
 - If conversion completed, move debugging to the downstream backend.
-- If conversion did not complete, focus on operator mapping or export validity.
+- If conversion did not complete, focus on operator mapping, export validity, or
+  delegate payload validity for the selected route.
 
 ## Dependency-related issues
 

@@ -7,16 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This repository provides the MLIA PyTorch-to-TOSA converter plugin. The Python
-package lives under `src/mlia/backend/mlia_pytorch_to_tosa_converter`, tests
-live under `tests`, and OpenSpec workflow support lives under `.codex/`,
-`.github/`, and `openspec/`.
+This repository provides MLIA converter plugins for PyTorch-to-TOSA,
+PyTorch-to-PTE, and PTE-to-delegate flows. The Python packages live under
+`src/mlia/backend/`, tests live under `tests`, and OpenSpec workflow support
+lives under `.codex/`, `.github/`, and `openspec/`.
 
 ## Working Rules
 
 - Use `uv` for environment management, test execution, pre-commit checks, and
   builds.
-- Keep converter behavior isolated to the `pt2_to_tosa` plugin boundary exposed
+- Keep converter behavior isolated to the relevant plugin boundary exposed
   through MLIA entry points.
 - Add or update tests for behavior changes, especially converter registration,
   conversion flow, installation metadata, and artifact handling.
@@ -38,9 +38,14 @@ uv build --wheel
 
 ## Repo Map
 
-- `src/mlia/backend/mlia_pytorch_to_tosa_converter/`: converter
+- `src/mlia/backend/mlia_pytorch_to_tosa_converter/`: PyTorch-to-TOSA
+  converter implementation, plugin registration, installation metadata, and
+  conversion helpers.
+- `src/mlia/backend/mlia_pytorch_to_pte_converter/`: PyTorch-to-PTE converter
   implementation, plugin registration, installation metadata, and conversion
   helpers.
+- `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
+  extractor implementation, plugin registration, and installation metadata.
 - `src/mlia/_vendor/artifacts/tosa-tools/`: vendored artifact metadata and
   sidecars.
 - `tests/`: converter registration, conversion behavior, and repository hook

@@ -11,12 +11,12 @@ This directory contains the MkDocs content for the
 ## Included pages
 
 - `source/index.md`: documentation landing page
-- `source/usage.md`: plugin purpose, packaging model, and MLIA integration
-- `source/conversion_flow.md`: how `.pt2` models move through the TOSA and PTE
-  conversion paths
-- `source/conversion_outputs.md`: conversion-stage outputs, success signals, and diagnostics
-- `source/cli.md`: CLI examples for automatic and explicit converter usage
-- `source/troubleshooting.md`: converter-specific troubleshooting notes
+- `source/usage.md`: converter keys, MLIA discovery, and route selection
+- `source/conversion_flow.md`: how `.pt2` and `.pte` artifacts move through the
+  TOSA, PTE, and delegate extraction paths
+- `source/conversion_outputs.md`: conversion artifacts, success signals, and diagnostics
+- `source/troubleshooting.md`: practical debugging sequence and common
+  conversion failures
 - `source/development.md`: local development, testing, and maintenance notes
 
 ## Build
@@ -39,7 +39,7 @@ The generated site will be written to `.mkdocs/site/`.
 
 ## Scope
 
-These docs focus on the PyTorch conversion paths packaged by this repo.
+These docs focus on the PyTorch and PTE conversion paths packaged by this repo.
 
 ## Relationship to the core and target repos
 
