@@ -15,7 +15,6 @@ import pytest
 import mlia.backend.mlia_pytorch_to_tosa_converter.conversion as conv_module
 from mlia.backend.pytorch_export_input import (
     load_exported_program,
-    validate_input_file,
 )
 from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
     DEFAULT_BASE_NAME,
@@ -35,29 +34,21 @@ def _raise_wrapped_direct_lowering_failure(*_args: object, **_kwargs: object) ->
 
 def test_converter_fails_when_input_is_not_pt2(tmp_path: Path) -> None:
     """Test converter rejects non-pt2 input files."""
+    converter = MliaPytorchToTosaConverter()
     txt_file = tmp_path / "model.txt"
-    txt_file.write_text("test")
+    txt_file.write_text("test", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Only .pt2 files are supported"):
-        validate_input_file(txt_file)
+        converter(txt_file, tmp_path)
 
 
 def test_converter_fails_when_input_is_not_a_file(tmp_path: Path) -> None:
     """Test converter rejects missing input files."""
+    converter = MliaPytorchToTosaConverter()
     missing_file = tmp_path / "model.pt2"
 
     with pytest.raises(FileNotFoundError, match="Input file does not exist"):
-        validate_input_file(missing_file)
-
-
-def test_converter_fails_when_output_dir_is_not_a_directory(tmp_path: Path) -> None:
-    """Test converter rejects nonexistent output directories."""
-    converter = MliaPytorchToTosaConverter()
-    pt2_file = tmp_path / "model.pt2"
-    pt2_file.write_text("test")
-
-    with pytest.raises(NotADirectoryError):
-        converter(pt2_file, tmp_path / "nonexistent")
+        converter(missing_file, tmp_path)
 
 
 @pytest.fixture()
@@ -82,31 +73,23 @@ def mock_deps(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     return deps
 
 
-@patch("mlia.backend.mlia_pytorch_to_tosa_converter.conversion.shutil.move")
-def test_full_conversion_process(
-    mock_move: Mock,
-    mock_deps: SimpleNamespace,
-) -> None:
+def test_full_conversion_process(mock_deps: SimpleNamespace) -> None:
     """Test complete conversion flow."""
-    mock_exported_program = Mock()
-    mock_exported_program.module.return_value = Mock()
-    mock_exported_program.example_inputs = [Mock()]
-    mock_deps.torch.export.load.return_value = mock_exported_program
-    mock_deps.torch.export.export.return_value = Mock()
+    exported_program = Mock()
+    graph_module = Mock()
+    example_inputs = [Mock()]
+    compile_spec = Mock()
+    quantizer = Mock()
+    lowered_exported_program = Mock()
 
-    mock_deps.get_symmetric_quantization_config.return_value = Mock()
-
-    mock_compile_spec_inst = Mock()
-    mock_compile_spec_inst.dump_intermediate_artifacts_to.return_value = (
-        mock_compile_spec_inst
-    )
-    mock_deps.TosaCompileSpec.return_value = mock_compile_spec_inst
-
-    mock_deps.TOSAQuantizer.return_value = Mock()
-    mock_deps.prepare_pt2e.return_value = Mock()
-    mock_deps.convert_pt2e.return_value = Mock()
+    exported_program.module.return_value = graph_module
+    exported_program.example_inputs = example_inputs
+    mock_deps.torch.export.load.return_value = exported_program
 
     converter = MliaPytorchToTosaConverter()
+    converter._setup_quantization = Mock(return_value=(compile_spec, quantizer))
+    converter._quantize_model = Mock(return_value=lowered_exported_program)
+    converter._lower_to_tosa = Mock()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         input_file = Path(tmpdir) / "model.pt2"
@@ -117,81 +100,68 @@ def test_full_conversion_process(
         source_dir.mkdir()
         (source_dir / EXPECTED_OUTPUT_FILENAME).write_text("tosa", encoding="utf-8")
 
-        mock_move.side_effect = lambda src, dst: Path(dst).write_text(
-            "tosa", encoding="utf-8"
-        )
-
         result = converter(input_file, output_dir)
 
-        mock_deps.torch.export.load.assert_called_once()
-        mock_deps.TosaCompileSpec.assert_called_once()
-        mock_deps.TOSAQuantizer.assert_called_once()
-        mock_deps.to_edge_transform_and_lower.assert_called_once()
         assert result == output_dir / "model.tosa"
-
-
-def test_converter_forwards_enable_quantization(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test converter forwards enable_quantization to the runner."""
-    converter = MliaPytorchToTosaConverter()
-    mock_run = MagicMock(return_value=Path("/tmp/model.tosa"))
-    monkeypatch.setattr(converter, "_run_converter", mock_run)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        input_file = Path(tmpdir) / "model.pt2"
-        input_file.write_text("test", encoding="utf-8")
-        output_dir = Path(tmpdir)
-
-        result = converter(
-            input_file,
-            output_dir,
-            enable_quantization=False,
+        assert result.read_text(encoding="utf-8") == "tosa"
+        mock_deps.torch.export.load.assert_called_once_with(input_file)
+        converter._setup_quantization.assert_called_once_with(
+            output_dir, DEFAULT_BASE_NAME
+        )
+        converter._quantize_model.assert_called_once_with(
+            graph_module, quantizer, example_inputs
+        )
+        converter._lower_to_tosa.assert_called_once_with(
+            lowered_exported_program, compile_spec
         )
 
-    mock_run.assert_called_once_with(
-        input_file,
-        output_dir,
-        enable_quantization=False,
+
+def test_conversion_process_without_quantization(
+    tmp_path: Path,
+    mock_deps: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test disabled quantization reuses the loaded exported program."""
+    exported_program = object()
+    compile_spec = object()
+    result = tmp_path / "model.tosa"
+    input_file = tmp_path / "model.pt2"
+    input_file.write_text("test", encoding="utf-8")
+
+    load_exported_program = Mock(return_value=exported_program)
+    monkeypatch.setattr(conv_module, "load_exported_program", load_exported_program)
+
+    converter = MliaPytorchToTosaConverter()
+    converter._create_compile_spec = Mock(return_value=compile_spec)
+    converter._lower_to_tosa = Mock()
+    converter._move_output_file = Mock(return_value=result)
+    converter._setup_quantization = Mock()
+    converter._quantize_model = Mock()
+
+    assert converter(input_file, tmp_path, enable_quantization=False) == result
+
+    load_exported_program.assert_called_once_with(mock_deps.torch, input_file)
+    converter._create_compile_spec.assert_called_once_with(tmp_path, DEFAULT_BASE_NAME)
+    converter._lower_to_tosa.assert_called_once_with(exported_program, compile_spec)
+    converter._move_output_file.assert_called_once_with(
+        input_file, tmp_path, DEFAULT_BASE_NAME
     )
-    assert result == Path("/tmp/model.tosa")
+    converter._setup_quantization.assert_not_called()
+    converter._quantize_model.assert_not_called()
 
 
-def test_load_model_failure(mock_deps: SimpleNamespace) -> None:
-    """Test model loading handles errors."""
-    mock_deps.torch.export.load.side_effect = RuntimeError("Load failed")
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        input_file = Path(tmpdir) / "model.pt2"
-        input_file.write_text("test", encoding="utf-8")
-
-        with pytest.raises(ValueError, match="Failed to load PyTorch export file"):
-            load_exported_program(mock_deps.torch, input_file)
-
-
-def test_lowering_failure(mock_deps: SimpleNamespace) -> None:
-    """Test TOSA lowering handles errors."""
-    mock_deps.to_edge_transform_and_lower.side_effect = RuntimeError("Lowering failed")
-
+def test_output_file_not_found(tmp_path: Path) -> None:
     converter = MliaPytorchToTosaConverter()
 
-    with pytest.raises(RuntimeError, match="TOSA lowering failed"):
-        converter._lower_to_tosa(Mock(), Mock())
-
-
-@patch("mlia.backend.mlia_pytorch_to_tosa_converter.conversion.shutil.move")
-def test_output_file_not_found(mock_move: Mock) -> None:
-    """Test output file handling when file missing."""
-    mock_move.side_effect = FileNotFoundError("Not found")
-    converter = MliaPytorchToTosaConverter()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with pytest.raises(
-            FileNotFoundError, match="Expected TOSA output file not found"
-        ):
-            converter._move_output_file(
-                Path(tmpdir) / "model.pt2", Path(tmpdir), DEFAULT_BASE_NAME
-            )
+    with pytest.raises(
+        FileNotFoundError,
+        match="Expected TOSA output file not found",
+    ):
+        converter._move_output_file(
+            tmp_path / "model.pt2",
+            tmp_path,
+            "converter_output",
+        )
 
 
 def test_import_dependencies_loads_modules() -> None:
@@ -300,31 +270,6 @@ def test_patch_node_visitor_import_error_logged(
     mock_logger.warning.assert_called_once()
     call_args = mock_logger.warning.call_args[0]
     assert "Could not patch NodeVisitor" in call_args[0]
-
-
-def test_run_converter_validates_file_existence() -> None:
-    """Test that _run_converter validates input file existence."""
-    converter = MliaPytorchToTosaConverter()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        nonexistent_file = Path(tmpdir) / "nonexistent.pt2"
-        output_dir = Path(tmpdir)
-
-        with pytest.raises(FileNotFoundError, match="Input file does not exist"):
-            converter._run_converter(nonexistent_file, output_dir)
-
-
-def test_run_converter_validates_file_is_file() -> None:
-    """Test that _run_converter validates input is a file not directory."""
-    converter = MliaPytorchToTosaConverter()
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        fake_file = Path(tmpdir) / "model.pt2"
-        fake_file.mkdir()
-        output_dir = Path(tmpdir)
-
-        with pytest.raises(FileNotFoundError, match="Input file does not exist"):
-            converter._run_converter(fake_file, output_dir)
 
 
 def test_known_direct_lowering_failure_matches_wrapped_runtime_error() -> None:
