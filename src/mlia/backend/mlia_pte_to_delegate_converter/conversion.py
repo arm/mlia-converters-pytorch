@@ -144,12 +144,44 @@ class MliaPteToDelegateConverter:
     """The delegate extractor for ExecuTorch PTE files."""
 
     converter_name = "PTE to Delegate Converter"
+    OPTIONAL_KWARGS = {"executorch_target_config": dict}
 
     def __init__(self) -> None:
         """Set up the PTE to delegate converter."""
         self._logger = logger
 
-    def __call__(self, pte_file: Path, output_dir: Path) -> Path:
+    def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:
+        """Return whether kwargs match the converter's supported signature."""
+        if not set(kwargs).issubset(self.OPTIONAL_KWARGS):
+            return False
+        return all(
+            isinstance(kwargs[name], expected_type)
+            for name, expected_type in self.OPTIONAL_KWARGS.items()
+            if name in kwargs
+        )
+
+    def supports(
+        self,
+        model: object,
+        target_format: str,
+        kwargs: dict[str, Any],
+    ) -> bool:
+        """Return whether this converter can handle the given model."""
+        if target_format != "delegate":
+            return False
+        if not isinstance(model, Path):
+            return False
+        if model.suffix != ".pte":
+            return False
+        return self._correct_kwargs(kwargs)
+
+    def __call__(
+        self,
+        pte_file: Path,
+        output_dir: Path,
+        *,
+        executorch_target_config: dict[str, Any] | None = None,
+    ) -> Path:
         """
         Extract the delegate payload from the given PTE file.
 
@@ -163,7 +195,11 @@ class MliaPteToDelegateConverter:
 
         with log_action(f"Running {self.converter_name}..."):
             self._logger.debug("%s:", self.converter_name)
-            output_file = self._run_converter(pte_file, output_dir)
+            output_file = self._run_converter(
+                pte_file,
+                output_dir,
+                executorch_target_config=executorch_target_config,
+            )
             self._logger.debug("Output file: %s", output_file)
 
         return output_file
@@ -206,8 +242,15 @@ class MliaPteToDelegateConverter:
         )
         return output_file
 
-    def _run_converter(self, pte_file: Path, output_dir: Path) -> Path:
+    def _run_converter(
+        self,
+        pte_file: Path,
+        output_dir: Path,
+        *,
+        executorch_target_config: dict[str, Any] | None = None,
+    ) -> Path:
         """Run the PTE to delegate converter and return the output file."""
+        del executorch_target_config  # Accepted for MLIA flow compatibility.
         program = self._deserialize_pte(pte_file)
         delegate_payload = self._extract_delegate_payload(program, pte_file)
         return self._save_delegate(delegate_payload, pte_file, output_dir)

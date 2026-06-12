@@ -39,6 +39,37 @@ def test_converter_fails_when_input_is_not_pt2(tmp_path: Path) -> None:
         converter(txt_file, tmp_path, {})
 
 
+def test_converter_supports_pt2_to_pte_transform() -> None:
+    """Test converter advertises support for pt2-to-pte transforms."""
+    converter = MliaPytorchToPteConverter()
+
+    assert converter.supports(
+        Path("model.pt2"),
+        "pte",
+        {"executorch_target_config": {}},
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "target_format", "kwargs"),
+    [
+        (Path("model.txt"), "pte", {"executorch_target_config": {}}),
+        (Path("model.pt2"), "tosa", {"executorch_target_config": {}}),
+        (Path("model.pt2"), "pte", {}),
+        (Path("model.pt2"), "pte", {"executorch_target_config": {}, "extra": True}),
+    ],
+)
+def test_converter_rejects_unsupported_pt2_to_pte_transform(
+    model: Path,
+    target_format: str,
+    kwargs: dict[str, object],
+) -> None:
+    """Test converter rejects unsupported pt2-to-pte transforms."""
+    converter = MliaPytorchToPteConverter()
+
+    assert not converter.supports(model, target_format, kwargs)
+
+
 def test_converter_fails_when_input_is_not_a_file(tmp_path: Path) -> None:
     """Test converter rejects missing input files."""
     converter = MliaPytorchToPteConverter()

@@ -139,11 +139,89 @@ def test_converter_reports_missing_executorch_deserialization_support(
         conv_module._get_deps.cache_clear()
 
 
+def test_converter_supports_pte_to_delegate_transform() -> None:
+    """Test converter advertises support for pte-to-delegate transforms."""
+    converter = MliaPteToDelegateConverter()
+
+    assert converter.supports(Path("model.pte"), "delegate", {})
+
+
+def test_converter_supports_executorch_target_config_option() -> None:
+    """Test supports() accepts executorch_target_config as an optional dict."""
+    converter = MliaPteToDelegateConverter()
+
+    assert converter.supports(
+        Path("model.pte"),
+        "delegate",
+        {"executorch_target_config": {}},
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "target_format", "kwargs"),
+    [
+        (Path("model.tosa"), "delegate", {}),
+        (Path("model.pte"), "tosa", {}),
+        (Path("model.pte"), "delegate", {"unexpected": True}),
+        (Path("model.pte"), "delegate", {"executorch_target_config": True}),
+    ],
+)
+def test_converter_rejects_unsupported_pte_to_delegate_transform(
+    model: Path,
+    target_format: str,
+    kwargs: dict[str, object],
+) -> None:
+    """Test converter rejects unsupported pte-to-delegate transforms."""
+    converter = MliaPteToDelegateConverter()
+
+    assert not converter.supports(model, target_format, kwargs)
+
+
+def test_converter_supports_pte_path_with_delegate_target() -> None:
+    """Test supports() accepts PTE path inputs with delegate target format."""
+    converter = MliaPteToDelegateConverter()
+
+    assert converter.supports(Path("model.pte"), "delegate", {})
+
+
+def test_converter_supports_rejects_unsupported_inputs() -> None:
+    """Test supports() rejects unsupported models, targets, and kwargs."""
+    converter = MliaPteToDelegateConverter()
+
+    assert not converter.supports(object(), "delegate", {})
+    assert not converter.supports(Path("model.pt2"), "delegate", {})
+    assert not converter.supports(Path("model.pte"), "tosa", {})
+    assert not converter.supports(
+        Path("model.pte"),
+        "delegate",
+        {"unsupported_kwarg": True},
+    )
+    assert not converter.supports(
+        Path("model.pte"),
+        "delegate",
+        {"executorch_target_config": True},
+    )
+
+
 def test_converter_extracts_tosa_payload_from_pte(tmp_path: Path) -> None:
     """Test converter extracts TOSA payload from a serialized PTE file."""
     pte_file = _write_pte(tmp_path)
 
     result = MliaPteToDelegateConverter()(pte_file, tmp_path)
+
+    assert result == tmp_path / "model.tosa"
+    assert result.read_bytes() == TOSA_PAYLOAD
+
+
+def test_converter_accepts_executorch_target_config_kwarg(tmp_path: Path) -> None:
+    """Test converter ignores executorch_target_config during extraction."""
+    pte_file = _write_pte(tmp_path)
+
+    result = MliaPteToDelegateConverter()(
+        pte_file,
+        tmp_path,
+        executorch_target_config={},
+    )
 
     assert result == tmp_path / "model.tosa"
     assert result.read_bytes() == TOSA_PAYLOAD

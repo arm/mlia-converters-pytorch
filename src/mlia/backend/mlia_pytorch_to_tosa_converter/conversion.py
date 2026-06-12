@@ -109,12 +109,38 @@ class MliaPytorchToTosaConverter:
     """The TOSA Converter For PyTorch class."""
 
     converter_name = "TOSA Converter For PyTorch"
+    OPTIONAL_KWARGS = {"enable_quantization": bool}
 
     def __init__(self) -> None:
         """Set up output consumers for the TOSA Converter For PyTorch."""
         self._logger = logger
         logging.getLogger("mlia").propagate = False
         self.output_consumers = [OutputLogger(logger, logging.INFO)]
+
+    def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:
+        """Return whether kwargs match the converter's supported signature."""
+        if not set(kwargs).issubset(self.OPTIONAL_KWARGS):
+            return False
+        return all(
+            isinstance(kwargs[name], expected_type)
+            for name, expected_type in self.OPTIONAL_KWARGS.items()
+            if name in kwargs
+        )
+
+    def supports(
+        self,
+        model: object,
+        target_format: str,
+        kwargs: dict[str, Any],
+    ) -> bool:
+        """Return whether this converter can handle the given model."""
+        if target_format != "tosa":
+            return False
+        if not isinstance(model, Path):
+            return False
+        if model.suffix != ".pt2":
+            return False
+        return self._correct_kwargs(kwargs)
 
     def __call__(
         self,

@@ -5,8 +5,9 @@
 from mlia.backend.mlia_pte_to_delegate_converter.conversion import (
     MliaPteToDelegateConverter,
 )
-from mlia.plugins.converter_registry import ConverterRegistry
 from mlia.plugins.plugins import Plugin
+from mlia.transformers.registry import Transformer
+from mlia.utils.registry import Registry
 
 
 class PteToDelegateConverterPlugin(Plugin):
@@ -15,6 +16,6 @@ class PteToDelegateConverterPlugin(Plugin):
     plugin_interface_version = "0.0.1"
 
     @staticmethod
-    def register(registry: ConverterRegistry) -> None:
+    def register(registry: Registry[Transformer]) -> None:
         """Register the converter with the registry."""
         registry.register("pte_to_delegate", MliaPteToDelegateConverter())

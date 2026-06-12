@@ -89,12 +89,37 @@ class MliaPytorchToPteConverter:
     """The PTE Converter For PyTorch class."""
 
     converter_name = "PTE Converter For PyTorch"
+    REQUIRED_KWARGS = {"executorch_target_config": dict}
 
     def __init__(self) -> None:
         """Set up output consumers for the PTE Converter For PyTorch."""
         self._logger = logger
         logging.getLogger("mlia").propagate = False
         self.output_consumers = [OutputLogger(logger, logging.INFO)]
+
+    def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:
+        """Return whether kwargs match the converter's supported signature."""
+        if set(kwargs) != set(self.REQUIRED_KWARGS):
+            return False
+        return all(
+            isinstance(kwargs[name], expected_type)
+            for name, expected_type in self.REQUIRED_KWARGS.items()
+        )
+
+    def supports(
+        self,
+        model: object,
+        target_format: str,
+        kwargs: dict[str, Any],
+    ) -> bool:
+        """Return whether this converter can handle the given model."""
+        if target_format != "pte":
+            return False
+        if not isinstance(model, Path):
+            return False
+        if model.suffix != ".pt2":
+            return False
+        return self._correct_kwargs(kwargs)
 
     def __call__(
         self,

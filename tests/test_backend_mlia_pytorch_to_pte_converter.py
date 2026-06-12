@@ -4,12 +4,16 @@
 
 from __future__ import annotations
 
-from mlia.plugins.converter_registry import ConverterRegistry
-from mlia.plugins.plugins import load_converter_plugins
+from typing import Any
+
+from mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin import (
+    PT2ToPteConverterPlugin,
+)
+from mlia.utils.registry import Registry
 
 
 def test_converter_registered() -> None:
     """Test converter plugin is registered."""
-    registry = ConverterRegistry()
-    load_converter_plugins(registry)
+    registry = Registry[Any]()
+    PT2ToPteConverterPlugin.register(registry)
     assert registry.get("pt2_to_pte") is not None

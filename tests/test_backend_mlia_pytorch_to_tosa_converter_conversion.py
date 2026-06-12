@@ -24,6 +24,43 @@ from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
 )
 
 
+def test_converter_supports_pt2_path_to_tosa_with_empty_transform_options() -> None:
+    """Test supports() accepts PT2 path inputs targeting TOSA."""
+    converter = MliaPytorchToTosaConverter()
+
+    assert converter.supports(Path("model.pt2"), "tosa", {})
+
+
+def test_converter_supports_enable_quantization_option() -> None:
+    """Test supports() accepts enable_quantization as an optional bool."""
+    converter = MliaPytorchToTosaConverter()
+
+    assert converter.supports(
+        Path("model.pt2"),
+        "tosa",
+        {"enable_quantization": False},
+    )
+
+
+def test_converter_supports_rejects_unsupported_inputs() -> None:
+    """Test supports() rejects unsupported models, targets, and kwargs."""
+    converter = MliaPytorchToTosaConverter()
+
+    assert not converter.supports(object(), "tosa", {})
+    assert not converter.supports(Path("model.pte"), "tosa", {})
+    assert not converter.supports(Path("model.pt2"), "pt2", {})
+    assert not converter.supports(
+        Path("model.pt2"),
+        "tosa",
+        {"unsupported_kwarg": 77},
+    )
+    assert not converter.supports(
+        Path("model.pt2"),
+        "tosa",
+        {"enable_quantization": "false"},
+    )
+
+
 def _raise_wrapped_direct_lowering_failure(*_args: object, **_kwargs: object) -> None:
     """Raise the wrapped ExecuTorch lowering failure shape used by the converter."""
     try:

@@ -9,7 +9,7 @@ This repository contains the MLIA converter plugins that translate PyTorch-based
 models into artifacts consumed by downstream MLIA backends and target flows.
 
 The package is distributed as `mlia-converters-pytorch`. When installed, it
-registers the converter keys `pt2_to_tosa`, `pt2_to_pte`, and
+registers the transformer names `pt2_to_tosa`, `pt2_to_pte`, and
 `pte_to_delegate` with MLIA through the plugin entry-point system.
 
 ## Table of Contents
@@ -73,8 +73,8 @@ declared in `pyproject.toml`, including `torch`, `executorch`, and `torchao`.
 
 ## How MLIA uses this plugin
 
-MLIA discovers this repository through the `mlia.plugin.converter` entry point.
-When installed, the package registers three converter keys:
+MLIA discovers this repository through the `mlia.plugin.transformer` entry
+point. When installed, the package registers three transformer names:
 
 - `pt2_to_tosa`
 - `pt2_to_pte`
@@ -82,18 +82,17 @@ When installed, the package registers three converter keys:
 
 This is the important naming split:
 
-- `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` are converter registry
-  keys used by MLIA to choose conversion paths.
-- `mlia_pytorch_to_tosa_converter`, `mlia_pytorch_to_pte_converter`, and
-  `mlia_pte_to_delegate_converter` are the implementation package names used
-  in the codebase.
+- `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` are the transformer names
+  used in MLIA configuration and CLI flows.
+- `mlia_pytorch_to_tosa_converter` and `mlia_pytorch_to_pte_converter` are the
+  implementation package names used in the codebase.
 
 That means downstream MLIA components can:
 
-- discover the converters without hard-coded import paths.
-- request PyTorch-to-TOSA, PyTorch-to-PTE, or PTE-to-delegate conversion through
-  the registry.
-- treat the converters as a separately versioned plugin package.
+- discover the transformers without hard-coded import paths.
+- request PyTorch-to-TOSA, PyTorch-to-PTE, or PTE-to-delegate transformations
+  through the shared transformer registry.
+- treat the transformers as a separately versioned plugin package.
 
 For more implementation detail, see [docs/README.md](docs/README.md).
 

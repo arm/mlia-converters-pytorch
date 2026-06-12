@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Overview
 
-This package registers three converter keys through the
-`mlia.plugin.converter` entry point:
+This package registers three transformer names through the
+`mlia.plugin.transformer` entry point:
 
 - `pt2_to_tosa`, implemented by `PT2ToTosaConverterPlugin`
 - `pt2_to_pte`, implemented by `PT2ToPteConverterPlugin`
@@ -18,18 +18,16 @@ This package registers three converter keys through the
 
 This repo uses two names that matter in different places:
 
-- Use `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` as the converter
-  registry keys exposed to MLIA.
-- Use `mlia_pytorch_to_tosa_converter`, `mlia_pytorch_to_pte_converter`, and
-  `mlia_pte_to_delegate_converter` as the implementation package names used in
-  the codebase.
+- Use `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` as the transformer
+  names exposed to MLIA and used in CLI-facing flows.
+- Use `mlia_pytorch_to_tosa_converter` and `mlia_pytorch_to_pte_converter` as
+  the implementation package names used in the codebase.
 
 ## Operational model
 
 The repository is designed to be installed alongside `mlia`, not used as a
-standalone CLI tool. Once installed, MLIA discovers these converters through the
-converter registry and runs them when a selected target backend needs one of
-their output artifacts.
+standalone CLI tool. Once installed, MLIA can discover the transformers and
+route conversion requests through the shared transformer registry.
 
 ## Typical workflow
 

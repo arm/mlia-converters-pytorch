@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
 dependencies = [
-    "mlia==0.11.0.dev28",
+    "mlia==0.11.0.dev33",
     "torch==2.9.0",
     "executorch==1.0.1",
     "torchao==0.14.0",
@@ -40,8 +40,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/arm/mlia-pytorch-converters.git"
 
-[project.entry-points."mlia.plugin.converter"]
+[project.entry-points."mlia.plugin.transformer"]
 pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2ToTosaConverterPlugin"
+nn_module_to_pt2 = "mlia.backend.mlia_nn_module_to_pt2_exporter.exporter_plugin:NNModuleToPt2ExporterPlugin"
 pt2_to_pte = "mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin:PT2ToPteConverterPlugin"
 pte_to_delegate = "mlia.backend.mlia_pte_to_delegate_converter.converter_plugin:PteToDelegateConverterPlugin"
 

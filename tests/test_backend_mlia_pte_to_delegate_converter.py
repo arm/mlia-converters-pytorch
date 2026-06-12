@@ -4,12 +4,16 @@
 
 from __future__ import annotations
 
-from mlia.plugins.converter_registry import ConverterRegistry
-from mlia.plugins.plugins import load_converter_plugins
+from typing import Any
+
+from mlia.backend.mlia_pte_to_delegate_converter.converter_plugin import (
+    PteToDelegateConverterPlugin,
+)
+from mlia.utils.registry import Registry
 
 
 def test_converter_registered() -> None:
     """Test converter plugin is registered."""
-    registry = ConverterRegistry()
-    load_converter_plugins(registry)
+    registry = Registry[Any]()
+    PteToDelegateConverterPlugin.register(registry)
     assert registry.get("pte_to_delegate") is not None
