@@ -14,6 +14,8 @@ routes and become intermediate artifacts for downstream MLIA backends.
 
 The converters in this repo accept:
 
+- `torch.nn.Module` instances in Python API flows, with `example_inputs`
+  provided as a tuple.
 - `.pt2` files, which are PyTorch export artifacts.
 - `.pte` files, which are serialized ExecuTorch program files.
 
@@ -21,11 +23,17 @@ The converters in this repo accept:
 
 At a high level, the converters:
 
-- Load a supported `.pt2` or `.pte` input.
+- Load or export a supported PyTorch module, `.pt2`, or `.pte` input.
 - Produce the artifact shape that the downstream MLIA backend expects.
 - Hand off that artifact to the next stage in the wider MLIA run.
 
 ## Available conversion routes
+
+### `nn_module_to_pt2`
+
+Exports an in-memory `torch.nn.Module` into a `model.pt2` artifact using
+`torch.export`. The route requires `example_inputs` so the exporter can trace
+the module.
 
 ### `pt2_to_tosa`
 

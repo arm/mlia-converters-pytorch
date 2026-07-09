@@ -11,7 +11,7 @@ This directory contains the MkDocs content for the
 ## Included pages
 
 - `source/index.md`: documentation landing page
-- `source/usage.md`: converter keys, MLIA discovery, and route selection
+- `source/usage.md`: transformer names, MLIA discovery, and route selection
 - `source/conversion_flow.md`: how `.pt2` and `.pte` artifacts move through the
   TOSA, PTE, and delegate extraction paths
 - `source/conversion_outputs.md`: conversion artifacts, success signals, and diagnostics

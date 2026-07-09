@@ -9,9 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 
 When a PyTorch-driven run fails:
 
-1. Confirm the input is a supported `.pt2` export artifact, or a `.pte` artifact
-   for the `pte_to_delegate` route.
-2. Confirm the selected converter route matches what the downstream backend
+1. Confirm the input is a supported `torch.nn.Module`, `.pt2` export artifact,
+   or `.pte` artifact for the `pte_to_delegate` route.
+2. Confirm the selected transformer route matches what the downstream backend
    expects.
 3. Confirm `mlia-converters-pytorch`, the downstream target plugin, and the
    backend plugin are installed in the active Python environment.
@@ -22,16 +22,18 @@ When a PyTorch-driven run fails:
 
 ## General issues
 
-### Converter plugin not available
+### Transformer plugin not available
 
 - Confirm the package is installed in the active environment.
 - Check MLIA's plugin discovery flow in the wider environment.
-- Reinstall the package if the converter key is not being discovered.
+- Reinstall the package if the expected transformer name is not being
+  discovered.
 
 ### Wrong input type
 
-- This repo supports `.pt2` PyTorch export artifacts, and ExecuTorch `.pte`
-  artifacts when using the `pte_to_delegate` route.
+- This repo supports `torch.nn.Module` objects in Python API flows, `.pt2`
+  PyTorch export artifacts, and ExecuTorch `.pte` artifacts when using the
+  `pte_to_delegate` route.
 - If the model is not a valid export artifact, the conversion path can fail
   before downstream analysis begins.
 
@@ -46,6 +48,8 @@ When a PyTorch-driven run fails:
 ### Wrong conversion route for the downstream backend
 
 - Use `pt2_to_tosa` when the downstream backend expects TOSA.
+- Use `nn_module_to_pt2` first when a Python API flow starts from a live
+  `torch.nn.Module`.
 - Use `pt2_to_pte` when the downstream backend expects an ExecuTorch `.pte`
   artifact.
 - Use `pte_to_delegate` when the downstream backend expects the TOSA or VGF

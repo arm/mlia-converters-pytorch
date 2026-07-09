@@ -9,8 +9,9 @@ This repository contains the MLIA converter plugins that translate PyTorch-based
 models into artifacts consumed by downstream MLIA backends and target flows.
 
 The package is distributed as `mlia-converters-pytorch`. When installed, it
-registers the transformer names `pt2_to_tosa`, `pt2_to_pte`, and
-`pte_to_delegate` with MLIA through the plugin entry-point system.
+registers the transformer names `nn_module_to_pt2`, `pt2_to_tosa`,
+`pt2_to_pte`, and `pte_to_delegate` with MLIA through the plugin entry-point
+system.
 
 ## Table of Contents
 
@@ -26,8 +27,10 @@ registers the transformer names `pt2_to_tosa`, `pt2_to_pte`, and
 ## Overview
 
 This plugin package provides the conversion bridge between PyTorch export flows
-and downstream MLIA backends. Today that means three main routes:
+and downstream MLIA backends. Today that means four main routes:
 
+- `torch.nn.Module` to `.pt2` for Python API flows that start from an in-memory
+  PyTorch module.
 - `.pt2` to TOSA for flows that consume TOSA artifacts.
 - `.pt2` to PTE for flows that consume ExecuTorch `.pte` artifacts.
 - `.pte` to delegate payload for flows that extract the TOSA or VGF backend
@@ -35,6 +38,7 @@ and downstream MLIA backends. Today that means three main routes:
 
 The implementation packages live under:
 
+- `src/mlia/backend/mlia_nn_module_to_pt2_exporter/`
 - `src/mlia/backend/mlia_pytorch_to_tosa_converter/`
 - `src/mlia/backend/mlia_pytorch_to_pte_converter/`
 - `src/mlia/backend/mlia_pte_to_delegate_converter/`
@@ -46,6 +50,8 @@ installation metadata used by MLIA.
 
 - `src/mlia/backend/mlia_pytorch_to_tosa_converter/`: TOSA conversion package
   and plugin registration.
+- `src/mlia/backend/mlia_nn_module_to_pt2_exporter/`: in-memory
+  `torch.nn.Module` export package and plugin registration.
 - `src/mlia/backend/mlia_pytorch_to_pte_converter/`: PTE conversion package and
   plugin registration.
 - `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
@@ -74,25 +80,26 @@ declared in `pyproject.toml`, including `torch`, `executorch`, and `torchao`.
 ## How MLIA uses this plugin
 
 MLIA discovers this repository through the `mlia.plugin.transformer` entry
-point. When installed, the package registers three transformer names:
+point. When installed, the package registers four transformer names:
 
+- `nn_module_to_pt2`
 - `pt2_to_tosa`
 - `pt2_to_pte`
 - `pte_to_delegate`
 
 This is the important naming split:
 
-- `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` are the transformer names
-  used in MLIA configuration and CLI flows.
+- `nn_module_to_pt2`, `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` are the
+  transformer names used in MLIA configuration and API or CLI flows.
 - `mlia_pytorch_to_tosa_converter` and `mlia_pytorch_to_pte_converter` are the
   implementation package names used in the codebase.
 
 That means downstream MLIA components can:
 
-- discover the transformers without hard-coded import paths.
-- request PyTorch-to-TOSA, PyTorch-to-PTE, or PTE-to-delegate transformations
-  through the shared transformer registry.
-- treat the transformers as a separately versioned plugin package.
+- Discover the transformers without hard-coded import paths.
+- Request PyTorch module export, PyTorch-to-TOSA, PyTorch-to-PTE, or
+  PTE-to-delegate transformations through the shared transformer registry.
+- Treat the transformers as a separately versioned plugin package.
 
 For more implementation detail, see [docs/README.md](docs/README.md).
 
@@ -147,7 +154,7 @@ repo lacks equivalent tooling (for example, pre-commit configuration).
 ## Documentation
 
 - [Documentation overview](docs/README.md): how to build and preview the docs.
-- [Usage and integration](docs/source/usage.md): converter keys, MLIA
+- [Usage and integration](docs/source/usage.md): transformer names, MLIA
   discovery, and route selection.
 - [Conversion flow](docs/source/conversion_flow.md): what each converter route
   does.
