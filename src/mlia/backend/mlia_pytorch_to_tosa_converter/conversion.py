@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TOSA_TARGET = "TOSA-1.0+INT"
 DEFAULT_BASE_NAME = "tosa_simple"
-EXPECTED_OUTPUT_FILENAME = f"output_tag1_{DEFAULT_TOSA_TARGET}.tosa"
+EXPECTED_OUTPUT_FILENAME = f"output_tag0_{DEFAULT_TOSA_TARGET}.tosa"
 DIRECT_LOWERING_UNSUPPORTED = "direct_lowering_unsupported"
 
 

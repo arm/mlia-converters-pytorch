@@ -208,7 +208,8 @@ class MliaPteToDelegateConverter:
         """Deserialize a PTE file into an ExecuTorch Program."""
         deps = _get_deps()
         try:
-            return deps.deserialize_pte_binary(pte_file.read_bytes())
+            pte = deps.deserialize_pte_binary(pte_file.read_bytes())
+            return pte.program
         except Exception as exc:
             raise ConfigurationError(
                 f"Failed to deserialize PTE file {pte_file}: {exc}"

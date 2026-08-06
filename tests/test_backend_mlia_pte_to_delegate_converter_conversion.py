@@ -20,7 +20,7 @@ from mlia.core.errors import ConfigurationError
 
 pytest.importorskip("executorch")
 
-from executorch.exir._serialize._program import serialize_pte_binary  # noqa: E402
+from executorch.exir._serialize._program import PTEFile, serialize_pte_binary  # noqa: E402
 from executorch.exir.schema import (  # noqa: E402
     BackendDelegate,
     BackendDelegateDataReference,
@@ -99,7 +99,7 @@ def _write_pte(
     pte_file.write_bytes(
         bytes(
             serialize_pte_binary(
-                program,
+                PTEFile(program),
                 extract_delegate_segments=extract_delegate_segments,
             )
         )
