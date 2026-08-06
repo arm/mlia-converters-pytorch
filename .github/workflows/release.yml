@@ -95,6 +95,16 @@ jobs:
       }}
     runs-on: ["${{ vars.UBUNTU_RUNNER }}", "X64"]
     steps:
+      - name: Import secrets from Vault
+        uses: hashicorp/vault-action@v4
+        with:
+          url: ${{ secrets.VAULT_URL }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          namespace: iac-expkits/prod
+          secrets: *vault-common-ci-secrets
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
