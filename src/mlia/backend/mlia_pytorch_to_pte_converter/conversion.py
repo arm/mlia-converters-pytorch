@@ -23,28 +23,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _ensure_tosa_serializer_installed() -> None:
-    """Ensure the vendor-packaged TOSA serialization library is installed."""
-    try:
-        from mlia.backend.install import InstallFromVendorPackage
-        from mlia.backend.mlia_pytorch_to_tosa_converter.install import (
-            get_mlia_pytorch_to_tosa_backend_installation,
-        )
-
-        installation = get_mlia_pytorch_to_tosa_backend_installation()
-        if not installation.already_installed:
-            installation.install(InstallFromVendorPackage())
-    except Exception as exc:  # pragma: no cover - defensive guard
-        raise ImportError(
-            "Failed to prepare ExecuTorch Ethos-U TOSA serializer dependency."
-        ) from exc
-
-
 @lru_cache(maxsize=1)
 def _get_deps() -> SimpleNamespace:
     """Import runtime dependencies lazily and cache the result."""
-    _ensure_tosa_serializer_installed()
-
     import torch
     from executorch.exir import EdgeCompileConfig, to_edge_transform_and_lower
     from executorch.exir.delegate import executorch_call_delegate
@@ -65,8 +46,8 @@ def _get_deps() -> SimpleNamespace:
     except ModuleNotFoundError as exc:
         if exc.name == "serializer":
             raise RuntimeError(
-                "Missing dependency 'tosa_serialization_lib' required for "
-                "Ethos-U delegation. Install the bundled tosa-tools vendor artifact."
+                "Missing dependency 'tosa-tools' required for Ethos-U delegation. "
+                "Install the project dependencies in the active environment."
             ) from exc
         raise
     from torchao.quantization.pt2e.quantize_pt2e import convert_pt2e, prepare_pt2e

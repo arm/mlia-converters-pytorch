@@ -23,8 +23,7 @@ lives under `.codex/`, `.github/`, and `openspec/`.
 - Keep generated or tool-owned OpenSpec files compatible with the local SPDX
   header or `.license` sidecar pattern.
 - If packaging, CI, or dependencies change, review `pyproject.toml`,
-  `.pre-commit-config.yaml`, `hatch_build.py`, and `.github/workflows/`
-  together.
+  `.pre-commit-config.yaml`, and `.github/workflows/` together.
 
 ## Setup And Validation
 
@@ -46,8 +45,6 @@ uv build --wheel
   helpers.
 - `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
   extractor implementation, plugin registration, and installation metadata.
-- `src/mlia/_vendor/artifacts/tosa-tools/`: vendored artifact metadata and
-  sidecars.
 - `tests/`: converter registration, conversion behavior, and repository hook
   coverage.
 - `pre_commit_hooks/check_copyright_header.py`: local copyright-year hook.

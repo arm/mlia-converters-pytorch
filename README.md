@@ -58,7 +58,7 @@ installation metadata used by MLIA.
   extraction package and plugin registration.
 - `tests/`: unit tests for converter registration and conversion behaviour.
 - `pre_commit_hooks/`: local repository hooks shared with CI quality checks.
-- `hatch_build.py`: packaging hook used during builds.
+- `pyproject.toml`: package dependencies and build configuration.
 
 ## Installation
 

@@ -19,28 +19,9 @@ from mlia.backend.pytorch_export_input import (
 from mlia.utils.proc import OutputLogger
 
 
-def _ensure_vendor_installed() -> None:
-    """Ensure vendor-packaged TOSA serialization library is installed."""
-    try:
-        from mlia.backend.mlia_pytorch_to_tosa_converter.install import (
-            get_mlia_pytorch_to_tosa_backend_installation,
-        )
-        from mlia.backend.install import InstallFromVendorPackage
-
-        installation = get_mlia_pytorch_to_tosa_backend_installation()
-        if not installation.already_installed:
-            installation.install(InstallFromVendorPackage())
-    except Exception as exc:  # pragma: no cover - defensive guard
-        raise ImportError(
-            "Failed to prepare PyTorch TOSA converter dependencies."
-        ) from exc
-
-
 @lru_cache(maxsize=1)
 def _get_deps() -> SimpleNamespace:
     """Import runtime dependencies lazily and cache the result."""
-    _ensure_vendor_installed()
-
     import torch
     from executorch.backends.arm.operators.node_visitor import NodeVisitor
     from executorch.backends.arm.quantizer import TOSAQuantizer

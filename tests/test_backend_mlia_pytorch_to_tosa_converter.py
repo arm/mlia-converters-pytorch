@@ -17,3 +17,12 @@ def test_converter_registered() -> None:
     registry = Registry[Any]()
     PT2ToTosaConverterPlugin.register(registry)
     assert registry.get("pt2_to_tosa") is not None
+
+
+def test_tosa_tools_serializer_available() -> None:
+    """The published tosa-tools package should provide serializer modules."""
+    import serializer
+    import tosa_serializer
+
+    assert serializer.__file__ is not None
+    assert tosa_serializer.__file__ is not None
