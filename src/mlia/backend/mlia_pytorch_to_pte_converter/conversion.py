@@ -75,7 +75,6 @@ class MliaPytorchToPteConverter:
     def __init__(self) -> None:
         """Set up output consumers for the PTE Converter For PyTorch."""
         self._logger = logger
-        logging.getLogger("mlia").propagate = False
         self.output_consumers = [OutputLogger(logger, logging.INFO)]
 
     def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:

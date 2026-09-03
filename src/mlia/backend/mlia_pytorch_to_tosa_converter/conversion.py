@@ -95,7 +95,6 @@ class MliaPytorchToTosaConverter:
     def __init__(self) -> None:
         """Set up output consumers for the TOSA Converter For PyTorch."""
         self._logger = logger
-        logging.getLogger("mlia").propagate = False
         self.output_consumers = [OutputLogger(logger, logging.INFO)]
 
     def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:
