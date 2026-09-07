@@ -3,6 +3,7 @@
 
 site_name: MLIA PyTorch Converter
 site_description: Documentation for the MLIA PyTorch converter plugin.
+site_url: https://arm.github.io/mlia-converters-pytorch/
 repo_url: https://github.com/arm/mlia-converters-pytorch
 repo_name: arm/mlia-converters-pytorch
 edit_uri: edit/main/docs/source/
