@@ -47,7 +47,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: uv sync --no-sources --group dev --no-install-project
+      - run: uv sync --group dev --no-install-project
       - run: uv run pre-commit run --all-files
 
   build:
@@ -100,7 +100,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: uv sync --no-sources --group test
+      - run: uv sync --group test
       - run: |
           set -o pipefail
           uv run pytest --no-success-flaky-report -m "not slow" tests/ | tee coverage.txt

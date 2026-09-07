@@ -48,6 +48,14 @@ nn_module_to_pt2 = "mlia.backend.mlia_nn_module_to_pt2_exporter.exporter_plugin:
 pt2_to_pte = "mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin:PT2ToPteConverterPlugin"
 pte_to_delegate = "mlia.backend.mlia_pte_to_delegate_converter.converter_plugin:PteToDelegateConverterPlugin"
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = {index = "pytorch-cpu"}
+
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
