@@ -11,16 +11,16 @@ This repository owns a converter stage inside the wider MLIA pipeline. Most
 changes here affect conversion behaviour, plugin registration, and the way this
 package cooperates with downstream target and backend plugins.
 
-The repo currently owns two PyTorch conversion routes and one PTE delegate
-extraction route. Some changes apply to both PyTorch paths while others are
-specific to the TOSA, PTE, or delegate converter.
+The repository provides an in-memory module exporter, two PyTorch artifact
+conversion routes, and one PTE delegate extraction route. Some changes apply
+to several routes, while others are specific to one transformer.
 
 ## Local setup
 
 Use `uv` to create and sync the development environment:
 
 ```bash
-uv sync --dev
+uv sync --group dev
 ```
 
 ## Common commands
@@ -55,7 +55,7 @@ When you change conversion behaviour, also review:
 
 - Plugin registration and discovery tests.
 - Conversion-specific tests and fixtures.
-- Whether the change affects `pt2_to_tosa`, `pt2_to_pte`,
+- Whether the change affects `nn_module_to_pt2`, `pt2_to_tosa`, `pt2_to_pte`,
   `pte_to_delegate`, or more than one route.
 - Whether shared `.pt2` loading changes affect both PyTorch routes.
 - Assumptions made by downstream backends that consume the converted artifacts.

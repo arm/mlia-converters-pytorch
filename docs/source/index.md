@@ -13,6 +13,7 @@ automatically when a PyTorch model flow needs them.
 
 ## Included plugins
 
+- Use `nn_module_to_pt2` to export an in-memory `torch.nn.Module`.
 - Use `pt2_to_tosa` for PyTorch-to-TOSA conversion.
 - Use `pt2_to_pte` for PyTorch-to-PTE conversion.
 - Use `pte_to_delegate` for PTE-to-delegate conversion.
@@ -22,5 +23,6 @@ automatically when a PyTorch model flow needs them.
 - [Usage and integration](usage.md)
 - [Conversion flow](conversion_flow.md)
 - [Conversion outputs and diagnostics](conversion_outputs.md)
+- [CLI examples](cli.md)
 - [Troubleshooting](troubleshooting.md)
 - [Development](development.md)

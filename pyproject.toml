@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/arm/mlia-pytorch-converters.git"
+Homepage = "https://github.com/arm/mlia-converters-pytorch.git"
 
 [project.entry-points."mlia.plugin.transformer"]
 pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2ToTosaConverterPlugin"

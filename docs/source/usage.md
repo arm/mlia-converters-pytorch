@@ -50,8 +50,8 @@ Use `nn_module_to_pt2` when a Python API workflow starts from an in-memory
 `torch.export` can trace the module and write a `model.pt2` artifact.
 
 Use `pt2_to_tosa` when the downstream backend expects TOSA. That is also the
-path that now supports disabling post-training quantization in workflows that
-want to try direct lowering instead.
+path can disable post-training quantization for workflows that need to try
+direct lowering.
 
 Use `pt2_to_pte` when the downstream backend expects an ExecuTorch `.pte`
 artifact and supplies the required ExecuTorch target configuration. In practice,

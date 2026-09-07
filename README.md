@@ -22,6 +22,8 @@ system.
 - [Reporting bugs](#reporting-bugs)
 - [Development (uv)](#development-uv)
 - [Documentation](#documentation)
+- [Releases](#releases)
+- [License](#license)
 - [Trademarks and copyrights](#trademarks-and-copyrights)
 
 ## Overview
@@ -71,11 +73,12 @@ pip install mlia-converters-pytorch
 For source-based development with `uv`:
 
 ```bash
-uv sync --dev
+uv sync --group dev
 ```
 
-The project requires Python 3.10 and pulls in the PyTorch-side dependencies
-declared in `pyproject.toml`, including `torch`, `executorch`, and `torchao`.
+The project supports the Python versions declared in `pyproject.toml` and
+installs the PyTorch-side dependencies listed there, including `torch`,
+`executorch`, and `torchao`.
 
 ## How MLIA uses this plugin
 
@@ -87,7 +90,7 @@ point. When installed, the package registers four transformer names:
 - `pt2_to_pte`
 - `pte_to_delegate`
 
-This is the important naming split:
+The package and transformers use different names:
 
 - `nn_module_to_pt2`, `pt2_to_tosa`, `pt2_to_pte`, and `pte_to_delegate` are the
   transformer names used in MLIA configuration and API or CLI flows.
@@ -115,10 +118,10 @@ when the bug is clearly and specifically in this PyTorch converter plugin.
 ## Development (uv)
 
 This repository uses `uv` for environment management and test execution. Ensure
-Python 3.10 is available (see `.python-version`), then install dependencies:
+the Python version in `.python-version` is available, then install dependencies:
 
 ```bash
-uv sync --dev
+uv sync --group dev
 ```
 
 Run unit tests (uses dependencies installed from the package index, including `mlia`):
@@ -145,12 +148,6 @@ Build a wheel:
 uv build --wheel
 ```
 
-## CI Parity With mlia-core
-
-CI jobs follow the same structure as mlia-core (lint/build/test_quick) and use
-uv-based commands. Deviations are documented in the workflow files where the
-repo lacks equivalent tooling (for example, pre-commit configuration).
-
 ## Documentation
 
 - [Documentation overview](docs/README.md): how to build and preview the docs.
@@ -162,6 +159,16 @@ repo lacks equivalent tooling (for example, pre-commit configuration).
   `mlia check`.
 - [Troubleshooting](docs/source/troubleshooting.md): common converter failures
   and debug steps.
+
+## Releases
+
+Latest changes and release history can be found in
+[MLIA PyTorch Converter releases](https://github.com/arm/mlia-converters-pytorch/releases).
+
+## License
+
+This project is licensed under the Apache License 2.0. See
+[`LICENSES/Apache-2.0.txt`](LICENSES/Apache-2.0.txt) for the full license text.
 
 ## Trademarks and copyrights
 

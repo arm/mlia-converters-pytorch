@@ -15,6 +15,7 @@ This directory contains the MkDocs content for the
 - `source/conversion_flow.md`: how `.pt2` and `.pte` artifacts move through the
   TOSA, PTE, and delegate extraction paths
 - `source/conversion_outputs.md`: conversion artifacts, success signals, and diagnostics
+- `source/cli.md`: CLI examples for automatic converter selection
 - `source/troubleshooting.md`: practical debugging sequence and common
   conversion failures
 - `source/development.md`: local development, testing, and maintenance notes
@@ -25,14 +26,14 @@ Install the documentation dependencies in your environment, then build from the
 repository root:
 
 ```bash
-uv sync --no-install-project --only-group docs
-uv run mkdocs build --strict
+uv sync --no-sources --no-install-project --only-group docs
+uv run --no-sync mkdocs build --strict
 ```
 
 For local preview:
 
 ```bash
-uv run mkdocs serve
+uv run --no-sync mkdocs serve
 ```
 
 The generated site will be written to `.mkdocs/site/`.

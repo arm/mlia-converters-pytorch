@@ -24,7 +24,7 @@ In a successful workflow, this repo contributes:
 
 A successful conversion result usually means:
 
-1. The `.pt2` model or `.pte` artifact is accepted.
+1. The `torch.nn.Module`, `.pt2` model, or `.pte` artifact is accepted.
 2. The converter produces the expected intermediate artifact for the selected
    route.
 3. A downstream backend consumes that artifact.
@@ -41,7 +41,8 @@ that runs after conversion.
 
 The most useful signals in this repo are usually:
 
-- Whether the `.pt2` model or `.pte` artifact was accepted and converted.
+- Whether the module, `.pt2` model, or `.pte` artifact was accepted and
+  converted.
 - Whether the selected route produced the expected artifact shape described in
   [conversion_flow.md](conversion_flow.md).
 - Whether the produced artifact was handed to the next backend.
