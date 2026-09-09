@@ -130,7 +130,7 @@ jobs:
   sync_to_public_repo:
     needs: build_and_test_wheel
     if: ${{ github.event.repository.private }}
-    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/sync-to-public-repo.yml@main
+    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/sync-to-public-repo.yml@d700621dafc25dea2b4c5d8531171af5ec8e00ee
     with:
       public_repo: arm/mlia-converters-pytorch
     secrets: inherit
