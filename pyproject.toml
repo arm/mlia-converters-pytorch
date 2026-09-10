@@ -10,9 +10,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mlia-converters-pytorch"
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 description = "ML Inference Advisor PyTorch Converter Plugin"
-readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSES/*.txt"]
@@ -59,6 +58,9 @@ torch = {index = "pytorch-cpu"}
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.wheel]
 # Include implicit namespace packages under src/.
 only-include = ["src/mlia"]
@@ -96,6 +98,7 @@ explicit_package_bases = true
 
 [dependency-groups]
 test = [
+    "hatchling>=1.32.0",
     "pytest==8.3.2",
     "flaky~=3.8.1",
     "pytest-cov==5.0.0"
