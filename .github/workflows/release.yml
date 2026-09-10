@@ -56,11 +56,12 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: uv build --wheel
       - run: uv sync --no-install-project --group test
+      - run: uv pip install --python "$UV_PROJECT_ENVIRONMENT" --no-deps dist/*.whl
+      - run: uv pip check --python "$UV_PROJECT_ENVIRONMENT"
       - run: |
           set -o pipefail
           uv run --no-sync \
-            --with dist/*.whl \
-            -- pytest --no-success-flaky-report tests/ | tee coverage.txt
+            pytest --no-success-flaky-report tests/ | tee coverage.txt
       - name: Publish coverage summary
         run: |
           {
