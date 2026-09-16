@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from mlia.core.errors import ConfigurationError
 
@@ -14,8 +14,8 @@ from mlia.core.errors import ConfigurationError
 class NNModuleToPt2Exporter:
     """Export a `torch.nn.Module` to a `model.pt2` artifact."""
 
-    REQUIRED_KWARGS = {"example_inputs": tuple}
-    OPTIONAL_KWARGS = {"enable_quantization": bool}
+    REQUIRED_KWARGS: ClassVar[dict[str, type[Any]]] = {"example_inputs": tuple}
+    OPTIONAL_KWARGS: ClassVar[dict[str, type[Any]]] = {"enable_quantization": bool}
 
     @staticmethod
     def _get_torch() -> Any:

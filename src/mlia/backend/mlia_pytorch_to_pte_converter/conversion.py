@@ -4,23 +4,142 @@
 
 from __future__ import annotations
 
+import io
 import logging
+import os
+import sys
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from functools import lru_cache
 from pathlib import Path
+from threading import RLock
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any
 
 from mlia.backend.pytorch_export_input import (
     load_exported_program,
     validate_input_file,
 )
-from mlia.utils.logging import log_action
+from mlia.utils.logging import log_action, redirect_output, redirect_raw
 from mlia.utils.proc import OutputLogger
 
 if TYPE_CHECKING:
     from torch.export import ExportedProgram
 
 logger = logging.getLogger(__name__)
+_CAPTURE_LOCK = RLock()
+
+
+def _set_logging_stream(handler: logging.StreamHandler, stream: IO[str]) -> None:
+    """Switch a handler stream even if flushing its previous sink fails."""
+    handler.acquire()
+    try:
+        try:
+            handler.setStream(stream)
+        except (OSError, ValueError):
+            # setStream flushes before assignment; restoration must still happen.
+            handler.stream = stream
+    finally:
+        handler.release()
+
+
+def _preserve_logging_output(stack: ExitStack, descriptors: set[int]) -> None:
+    """Keep existing stream handlers outside the native output capture."""
+    root = logging.getLogger()
+    loggers = [root, *list(root.manager.loggerDict.values())]
+    handlers = {
+        handler
+        for item in loggers
+        if isinstance(item, logging.Logger)
+        for handler in item.handlers
+        if isinstance(handler, logging.StreamHandler)
+    }
+    if isinstance(logging.lastResort, logging.StreamHandler):
+        handlers.add(logging.lastResort)
+    for handler in handlers:
+        stream = handler.stream
+        try:
+            descriptor = stream.fileno()
+        except (AttributeError, io.UnsupportedOperation):
+            descriptor = None
+        except (OSError, ValueError):
+            # Dormant loggers can retain closed or unavailable streams.
+            continue
+        if descriptor not in descriptors and handler is not logging.lastResort:
+            continue
+        try:
+            handler.flush()
+        except (OSError, ValueError):
+            continue
+        sink = stream
+        if descriptor in descriptors:
+            duplicate = os.dup(descriptor)
+            stack.callback(os.close, duplicate)
+            sink = stack.enter_context(
+                open(
+                    duplicate,
+                    "w",
+                    closefd=False,
+                    encoding=getattr(stream, "encoding", None),
+                    errors=getattr(stream, "errors", None),
+                )
+            )
+        if handler is logging.lastResort:
+            # The default fallback has a read-only stream property.
+            fallback = logging.StreamHandler(sink)
+            fallback.setLevel(handler.level)
+            fallback.setFormatter(handler.formatter)
+            fallback.filters = handler.filters.copy()
+            stack.callback(setattr, logging, "lastResort", handler)
+            logging.lastResort = fallback
+        else:
+            _set_logging_stream(handler, sink)
+            stack.callback(_set_logging_stream, handler, stream)
+
+
+@contextmanager
+def _capture_conversion_output() -> Iterator[None]:
+    """Serialize compiler output capture; changes process-wide IO."""
+    # Hold the shared lock from the stream snapshot through complete restoration.
+    with _CAPTURE_LOCK, ExitStack() as stack:
+        streams = (sys.stdout, sys.stderr)
+        descriptors = {1, 2}
+        for stream in streams:
+            try:
+                # Keep buffered caller output outside every descriptor capture window.
+                stream.flush()
+                descriptors.add(stream.fileno())
+            except (AttributeError, OSError, ValueError):
+                continue
+        # Check availability before capture resources can reuse closed descriptors.
+        outputs = {}
+        for descriptor in sorted(descriptors):
+            try:
+                # Borrow the descriptor without closing it when the wrapper exits.
+                output = open(descriptor, "w", closefd=False)
+            except OSError:
+                continue
+            outputs[descriptor] = stack.enter_context(output)
+        # Restore handlers only after all captured output has been replayed.
+        _preserve_logging_output(stack, set(outputs))
+        # Native writes use 1/2 even when Python streams use different descriptors.
+        for output in outputs.values():
+            stack.enter_context(redirect_raw(logger, output, logging.DEBUG))
+        stack.enter_context(
+            redirect_output(
+                logger, stdout_level=logging.DEBUG, stderr_level=logging.DEBUG
+            )
+        )
+        try:
+            yield
+        finally:
+            # Vela may print through a cached stream. Flush while its descriptor
+            # is still redirected, including when compilation raises an error.
+            for stream in streams:
+                try:
+                    stream.flush()
+                except (AttributeError, OSError, ValueError):
+                    continue
 
 
 @lru_cache(maxsize=1)
@@ -245,9 +364,10 @@ class MliaPytorchToPteConverter:
         """Run the PTE Converter For PyTorch and return the PTE output file."""
         validate_input_file(pytorch_file)
         deps = _get_deps()
-        exported_program = load_exported_program(deps.torch, pytorch_file)
-        executorch_program = self._convert_to_pte(
-            deps, exported_program, executorch_target_config
-        )
+        with _capture_conversion_output():
+            exported_program = load_exported_program(deps.torch, pytorch_file)
+            executorch_program = self._convert_to_pte(
+                deps, exported_program, executorch_target_config
+            )
 
-        return self._save_pte(executorch_program, pytorch_file, output_dir)
+            return self._save_pte(executorch_program, pytorch_file, output_dir)

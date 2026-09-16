@@ -41,7 +41,7 @@ repos:
   rev: 6.3.0
   hooks:
     - id: pydocstyle
-      additional_dependencies: ["tomli==2.0.1"]
+      additional_dependencies: ["tomli==2.4.1"]
 
 - repo: https://github.com/jackdewinter/pymarkdown
   rev: v0.9.35
@@ -71,6 +71,8 @@ repos:
   rev: v2.16.0
   hooks:
   - id: pretty-format-toml
+    # Keep fresh CI environments and cached local hooks on the same TOML format.
+    additional_dependencies: ["toml-sort==0.24.3", "tomlkit==0.14.0"]
     args: [--autofix, "--no-sort", --indent, "4"]
     exclude: ^uv\.lock$
 
