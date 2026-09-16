@@ -31,6 +31,20 @@ env:
     kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} VENDORED_ARTIFACTS_URLS | VENDORED_ARTIFACTS_URLS
 
 jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+    secrets: inherit
+
+  blackduck_scan:
+    name: Black Duck Scan
+    if: ${{ github.event.repository.private && github.ref_type == 'tag' }}
+    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/blackduck-full-scan.yml@24b734441123e62c1bb8fe180bf17efc0dec1d31
+    with:
+      project-version: ${{ github.ref_name }}
+      source-ref: ${{ github.sha }}
+    secrets:
+      BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_API_TOKEN }}
+
   build_and_test_wheel:
     name: Build And Test Wheel
     runs-on: ["${{ vars.UBUNTU_RUNNER }}", "X64"]
@@ -54,14 +68,14 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: uv build --wheel
+      - run: uv build
       - run: uv sync --no-install-project --group test
       - run: uv pip install --python "$UV_PROJECT_ENVIRONMENT" --no-deps dist/*.whl
       - run: uv pip check --python "$UV_PROJECT_ENVIRONMENT"
       - run: |
           set -o pipefail
           uv run --no-sync \
-            pytest --no-success-flaky-report tests/ | tee coverage.txt
+            pytest --no-success-flaky-report -o pythonpath= tests/ | tee coverage.txt
       - name: Publish coverage summary
         run: |
           {
@@ -77,20 +91,26 @@ jobs:
           name: coverage-report
           path: coverage.xml
           if-no-files-found: ignore
-      - name: Upload wheel artifacts
+      - name: Upload tested distributions
         uses: actions/upload-artifact@v4
         with:
           name: wheel
-          path: dist/*.whl
+          path: dist/*
           if-no-files-found: error
 
   publish_release:
     name: Publish Release
-    needs: build_and_test_wheel
+    needs:
+      - lint
+      - blackduck_scan
+      - build_and_test_wheel
     if: >-
       ${{
-        always() &&
+        !cancelled() &&
+        needs.lint.result == 'success' &&
         needs.build_and_test_wheel.result == 'success' &&
+        (!github.event.repository.private || github.ref_type != 'tag' ||
+          needs.blackduck_scan.result == 'success') &&
         (github.repository_owner != 'arm' || github.ref_type == 'tag')
       }}
     runs-on: ["${{ vars.UBUNTU_RUNNER }}", "X64"]
@@ -111,7 +131,10 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: uv build
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel
+          path: dist
       - run: uv publish dist/*
         env:
           UV_PUBLISH_URL: ${{ secrets.PUBLISH_PYPI_HOST }}
@@ -120,7 +143,7 @@ jobs:
 
   publish_docs:
     name: Publish Documentation
-    if: ${{ github.ref_type == 'tag' }}
+    if: ${{ github.event.repository.private && github.ref_type == 'tag' }}
     needs: publish_release
     uses: ./.github/workflows/docs.yml
     with:
@@ -128,9 +151,68 @@ jobs:
       wheel-artifact: wheel
     secrets: inherit
 
+  create_github_release:
+    name: Prepare Release Notes
+    if: ${{ github.event.repository.private && github.ref_type == 'tag' }}
+    needs: publish_docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release or preserve existing notes
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        with:
+          script: |
+            const repo = context.repo;
+            const tag = process.env.RELEASE_TAG;
+            let release;
+            try {
+              ({ data: release } = await github.rest.repos.getReleaseByTag({
+                ...repo, tag
+              }));
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.repos.createRelease({
+                ...repo,
+                tag_name: tag,
+                target_commitish: context.sha,
+                name: tag,
+                generate_release_notes: true,
+                prerelease: !/^v[0-9]+\.[0-9]+\.[0-9]+$/.test(tag)
+              });
+              return;
+            }
+            const updates = {};
+            if (!release.body?.trim()) {
+              const { data: notes } = await github.rest.repos.generateReleaseNotes({
+                ...repo, tag_name: tag, target_commitish: context.sha
+              });
+              updates.body = notes.body;
+            }
+            if (release.draft) updates.draft = false;
+            if (Object.keys(updates).length) {
+              await github.rest.repos.updateRelease({
+                ...repo, release_id: release.id, ...updates
+              });
+            }
+
   sync_to_public_repo:
-    needs: build_and_test_wheel
-    if: ${{ github.event.repository.private }}
+    needs: publish_release
+    if: >-
+      ${{ github.event.repository.private && github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' }}
+    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/sync-to-public-repo.yml@d700621dafc25dea2b4c5d8531171af5ec8e00ee
+    with:
+      public_repo: arm/mlia-converters-pytorch
+    secrets: inherit
+
+  sync_release_to_public_repo:
+    needs: create_github_release
+    if: >-
+      ${{ github.event.repository.private && github.event_name == 'push' &&
+      github.ref_type == 'tag' }}
     uses: Arm-Debug/github-workflow-wizardry/.github/workflows/sync-to-public-repo.yml@d700621dafc25dea2b4c5d8531171af5ec8e00ee
     with:
       public_repo: arm/mlia-converters-pytorch
