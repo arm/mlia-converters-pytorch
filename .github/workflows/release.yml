@@ -38,12 +38,22 @@ jobs:
   blackduck_scan:
     name: Black Duck Scan
     if: ${{ github.event.repository.private && github.ref_type == 'tag' }}
-    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/blackduck-full-scan.yml@24b734441123e62c1bb8fe180bf17efc0dec1d31
+    uses: Arm-Debug/github-workflow-wizardry/.github/workflows/blackduck-full-scan.yml@f043921e498ad33aca180f2d2e41c7ae10fbb1cf
     with:
       project-version: ${{ github.ref_name }}
       source-ref: ${{ github.sha }}
+      uv-dependencies: true
+      python-version: "3.10"
+      vault-namespace: iac-expkits/prod
+      vault-secrets: |
+        kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} UV_DEFAULT_INDEX | UV_DEFAULT_INDEX ;
+        kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} INTERNAL_PYPI_USERNAME | UV_INDEX_INTERNAL_USERNAME ;
+        kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} INTERNAL_PYPI_PASSWORD | UV_INDEX_INTERNAL_PASSWORD
     secrets:
       BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_API_TOKEN }}
+      VAULT_URL: ${{ secrets.VAULT_URL }}
+      VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+      VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
 
   build_and_test_wheel:
     name: Build And Test Wheel
