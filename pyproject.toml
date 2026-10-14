@@ -30,8 +30,8 @@ classifiers = [
 ]
 dependencies = [
     "mlia>=0.12.0,<0.13",
-    "torch==2.13.0",
-    "executorch==1.4.1",
+    "torch==2.14.0",
+    "executorch==1.5.1",
     "torchao==0.18.0",
     "ethos-u-vela==5.2.0",
     "tosa-tools==2026.2.1",
