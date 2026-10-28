@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 This repository contains the MLIA converter plugins that translate PyTorch-based
 models into artifacts consumed by downstream MLIA backends and target flows.
+It also provides shared ETRecord/ETDump readers for target profiling integrations.
 
 The package is distributed as `mlia-converters-pytorch`. When installed, it
 registers the transformer names `nn_module_to_pt2`, `pt2_to_tosa`,
@@ -58,6 +59,11 @@ installation metadata used by MLIA.
   plugin registration.
 - `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
   extraction package and plugin registration.
+- `src/mlia/backend/executorch/`: `etrecord.py` extracts method and source
+  relationships; `etdump.py` reads events and opaque delegate metadata into the
+  SDK-independent data types in `capture.py`. Measurement attribution, timing
+  aggregation, hardware-specific decoding and metric construction belong to
+  target plugins. This library registers no additional transformer or backend.
 - `tests/`: unit tests for converter registration and conversion behaviour.
 - `pre_commit_hooks/`: local repository hooks shared with CI quality checks.
 - `pyproject.toml`: package dependencies and build configuration.
@@ -105,6 +111,56 @@ That means downstream MLIA components can:
 - Treat the transformers as a separately versioned plugin package.
 
 For more implementation detail, see [docs/README.md](docs/README.md).
+
+### Shared ETRecord and ETDump readers
+
+Target integrations can read an ETRecord and its matching ETDump once and
+consume a detached, delegate-neutral capture:
+
+```python
+from pathlib import Path
+
+from mlia.backend.executorch.etdump import read_profiling_capture
+
+capture = read_profiling_capture(
+    etdump_path=Path("run.etdump"),
+    etrecord_path=Path("model.etrecord"),
+    method="forward",
+)
+for event in capture.events:
+    source_nodes = (
+        capture.nodes_for_instruction(event.instruction_id)
+        if event.instruction_id is not None
+        else []
+    )
+    # Dispatch event.raw_delegate_metadata to the target's decoder.
+
+# Pass capture to the target's analysis API; it needs no SDK objects.
+```
+
+Events retain their block/index identity, method, instruction, backend, raw
+metadata, debug handles and available timing samples. SDK-normalized timings
+remain in milliseconds. Single-method selection is automatic; multi-method
+records require `method`. Set `method_option` to the caller's CLI
+option name when supplying a method-selection diagnostic.
+
+`ProfilingCapture` contains plain Python data: events, unaggregated samples,
+source graph, handle-to-node index and instruction-to-handle relationships.
+Sample positions retain the Inspector's execution ordering within each block;
+different blocks do not establish aligned executions. Opaque metadata remains
+bytes or text, with `None` preserving missing metadata entries. Importing the
+capture types does not import Torch or ExecuTorch.
+
+Delegate events require an exact recorded delegate ID to resolve source handles.
+Without an exact mapping, the event retains its identity, metadata and timing
+samples with no source handles. Targets decide how to report unmapped timings or
+use available instruction-level wrapper observations.
+
+Neural Technology owns runtime correlation, shared-observation accounting,
+delegate-wrapper fallback, timing aggregation, VGF decoding and NX metrics.
+Core measured-result types support standardized runtime output.
+Model Explorer renders the analyzed results through existing adapters. This
+reader can also supply opaque payloads to other target integrations.
 
 ## Reporting bugs
 
@@ -176,3 +232,24 @@ This project is licensed under the Apache License 2.0. See
 - PyTorch and ExecuTorch are trademarks of The Linux Foundation.
 - Linux is the registered trademark of Linus Torvalds in the U.S. and elsewhere.
 - Python is a registered trademark of the PSF.
+
+## Shared ExecuTorch artifact processing
+
+This package also prepares deployed ExecuTorch artifacts for MLIA analysis. Its
+scope includes model conversion and extraction, ETRecord/ETDump reading,
+method-local recorded identities and relationships, raw timing samples and opaque
+PTE delegate indexing. It does not register a target or hardware execution backend.
+VGF payload decoding and NX metrics belong to `mlia-neural-technology`; future
+Ethos-U-specific profiling belongs to `mlia-ethos-u`.
+
+- `ETRecordIndex.source_graph()` publishes canonical nodes and dataflow edges.
+- `ETDumpReader` resolves handles once and preserves opaque delegate metadata.
+- `read_profiling_capture()` returns SDK-independent data for target analysis.
+- `PTEReader` indexes all methods and delegate calls without decoding payloads.
+
+The target plugin classifies source operators, projects dataflow onto its analysis
+entities, decides measurement attribution and aggregation, and adds
+decoded observations and artifact relationships to the
+standardized output. Core CLI and Python callers receive those facts before
+optional Model Explorer rendering. See the
+[analysis contract](docs/source/development.md#analysis-contract).

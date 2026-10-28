@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mlia-converters-pytorch"
 dynamic = ["version", "readme"]
-description = "ML Inference Advisor PyTorch Converter Plugin"
+description = "ML Inference Advisor PyTorch conversion and shared ExecuTorch artifact processing"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSES/*.txt"]
@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
 dependencies = [
-    "mlia>=0.12.0,<0.13",
+    "mlia>=0.13.0,<0.14",
     "torch==2.14.0",
     "executorch==1.5.1",
     "torchao==0.18.0",
