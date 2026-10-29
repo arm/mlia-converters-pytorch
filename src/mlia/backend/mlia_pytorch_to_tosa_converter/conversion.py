@@ -178,6 +178,7 @@ class MliaPytorchToTosaConverter:
         compile_spec = deps.TosaCompileSpec(
             DEFAULT_TOSA_TARGET
         ).dump_intermediate_artifacts_to(str(output_dir / base_name))
+        compile_spec.dump_debug_info(deps.ArmCompileSpec.DebugMode.TOSA)
 
         self._patch_node_visitor_for_location()
         return compile_spec
