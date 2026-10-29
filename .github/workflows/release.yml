@@ -127,6 +127,12 @@ jobs:
       }}
     runs-on: ["${{ vars.UBUNTU_RUNNER }}", "X64"]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
       - name: Import secrets from Vault
         uses: hashicorp/vault-action@v4
         with:
@@ -135,23 +141,15 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           namespace: iac-expkits/prod
-          secrets: *vault-common-ci-secrets
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          secrets: |
+            kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} PUBLISH_PYPI_HOST | UV_PUBLISH_URL ;
+            kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} ${{ github.event.repository.private && 'INTERNAL_PYPI_USERNAME' || 'PUBLISH_PYPI_USERNAME' }} | UV_PUBLISH_USERNAME ;
+            kv/data/MLIA/CI?version=${{ vars.VAULT_CI_SECRET_VERSION || '0' }} ${{ github.event.repository.private && 'INTERNAL_PYPI_PASSWORD' || 'PUBLISH_PYPI_PASSWORD' }} | UV_PUBLISH_PASSWORD
       - uses: actions/download-artifact@v4
         with:
           name: wheel
           path: dist
       - run: uv publish dist/*
-        env:
-          UV_PUBLISH_URL: ${{ secrets.PUBLISH_PYPI_HOST }}
-          UV_PUBLISH_USERNAME: ${{ secrets.INTERNAL_PYPI_USERNAME || secrets.PUBLISH_PYPI_USERNAME }}
-          UV_PUBLISH_PASSWORD: ${{ secrets.INTERNAL_PYPI_PASSWORD || secrets.PUBLISH_PYPI_PASSWORD }}
 
   publish_docs:
     name: Publish Documentation
