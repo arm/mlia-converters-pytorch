@@ -1,0 +1,53 @@
+{
+  "title": "PyTorch Converters",
+  "headline": "Connect PyTorch to analysis.",
+  "lead": "Follow supported export and conversion routes from PyTorch modules, .pt2 models, and ExecuTorch .pte artifacts.",
+  "category": "Converter plugins",
+  "start": "/usage",
+  "focus": [
+    {
+      "title": "Choose your integration",
+      "description": "Use MLIA to discover and run the registered transformers.",
+      "to": "/usage"
+    },
+    {
+      "title": "Choose a conversion route",
+      "description": "Explore module export, TOSA, PTE, and delegate extraction.",
+      "to": "/conversion_flow"
+    },
+    {
+      "title": "Understand the outputs",
+      "description": "Inspect artifacts and diagnose conversion failures.",
+      "to": "/conversion_outputs"
+    }
+  ],
+  "note": "MLIA selects the conversion route for the input and downstream backend. Requirements differ between routes.",
+  "learning": null,
+  "repository": "https://github.com/arm/mlia-converters-pytorch",
+  "guides": [
+    {
+      "title": "Usage and Integration",
+      "to": "/usage"
+    },
+    {
+      "title": "Conversion Outputs and Diagnostics",
+      "to": "/conversion_outputs"
+    },
+    {
+      "title": "Conversion Flow",
+      "to": "/conversion_flow"
+    },
+    {
+      "title": "Troubleshooting",
+      "to": "/troubleshooting"
+    },
+    {
+      "title": "CLI Guide",
+      "to": "/cli"
+    },
+    {
+      "title": "Development",
+      "to": "/development"
+    }
+  ]
+}

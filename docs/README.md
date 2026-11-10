@@ -47,3 +47,7 @@ These docs focus on the PyTorch and PTE conversion paths packaged by this repo.
 Use the main `mlia` repo for shared CLI and output-structure concepts. Use the
 target repos for the backend-specific metrics that appear after conversion. Use
 this docs tree for conversion-path behaviour, diagnostics, and debugging.
+
+## Published documentation
+
+[Read the documentation on Arm Developer](https://developer.arm.com/dev-docs/mlia-converters-pytorch/).

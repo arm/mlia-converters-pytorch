@@ -206,6 +206,8 @@ uv build --wheel
 
 ## Documentation
 
+[Read the documentation on Arm Developer](https://developer.arm.com/dev-docs/mlia-converters-pytorch/).
+
 - [Documentation overview](docs/README.md): how to build and preview the docs.
 - [Usage and integration](docs/source/usage.md): transformer names, MLIA
   discovery, and route selection.
