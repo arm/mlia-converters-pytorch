@@ -14,12 +14,15 @@ registers the transformer names `nn_module_to_pt2`, `pt2_to_tosa`,
 `pt2_to_pte`, and `pte_to_delegate` with MLIA through the plugin entry-point
 system.
 
+[Read the documentation on Arm Developer](https://developer.arm.com/dev-docs/mlia-converters-pytorch/).
+
 ## Table of Contents
 
 - [Overview](#overview)
-- [Repository contents](#repository-contents)
 - [Installation](#installation)
 - [How MLIA uses this plugin](#how-mlia-uses-this-plugin)
+- [Shared ExecuTorch artifact processing](#shared-executorch-artifact-processing)
+- [Repository contents](#repository-contents)
 - [Reporting bugs](#reporting-bugs)
 - [Development (uv)](#development-uv)
 - [Documentation](#documentation)
@@ -48,25 +51,6 @@ The implementation packages live under:
 
 Together they include conversion logic, converter registration, and backend
 installation metadata used by MLIA.
-
-## Repository contents
-
-- `src/mlia/backend/mlia_pytorch_to_tosa_converter/`: TOSA conversion package
-  and plugin registration.
-- `src/mlia/backend/mlia_nn_module_to_pt2_exporter/`: in-memory
-  `torch.nn.Module` export package and plugin registration.
-- `src/mlia/backend/mlia_pytorch_to_pte_converter/`: PTE conversion package and
-  plugin registration.
-- `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
-  extraction package and plugin registration.
-- `src/mlia/backend/executorch/`: `etrecord.py` extracts method and source
-  relationships; `etdump.py` reads events and opaque delegate metadata into the
-  SDK-independent data types in `capture.py`. Measurement attribution, timing
-  aggregation, hardware-specific decoding and metric construction belong to
-  target plugins. This library registers no additional transformer or backend.
-- `tests/`: unit tests for converter registration and conversion behaviour.
-- `pre_commit_hooks/`: local repository hooks shared with CI quality checks.
-- `pyproject.toml`: package dependencies and build configuration.
 
 ## Installation
 
@@ -162,6 +146,46 @@ Core measured-result types support standardized runtime output.
 Model Explorer renders the analyzed results through existing adapters. This
 reader can also supply opaque payloads to other target integrations.
 
+## Shared ExecuTorch artifact processing
+
+This package also prepares deployed ExecuTorch artifacts for MLIA analysis. Its
+scope includes model conversion and extraction, ETRecord/ETDump reading,
+method-local recorded identities and relationships, raw timing samples and opaque
+PTE delegate indexing. It does not register a target or hardware execution backend.
+VGF payload decoding and NX metrics belong to `mlia-neural-technology`; future
+Ethos-U-specific profiling belongs to `mlia-ethos-u`.
+
+- `ETRecordIndex.source_graph()` publishes canonical nodes and dataflow edges.
+- `ETDumpReader` resolves handles once and preserves opaque delegate metadata.
+- `read_profiling_capture()` returns SDK-independent data for target analysis.
+- `PTEReader` indexes all methods and delegate calls without decoding payloads.
+
+The target plugin classifies source operators, projects dataflow onto its analysis
+entities, decides measurement attribution and aggregation, and adds
+decoded observations and artifact relationships to the
+standardized output. Core CLI and Python callers receive those facts before
+optional Model Explorer rendering. See the
+[analysis contract](docs/source/development.md#analysis-contract).
+
+## Repository contents
+
+- `src/mlia/backend/mlia_pytorch_to_tosa_converter/`: TOSA conversion package
+  and plugin registration.
+- `src/mlia/backend/mlia_nn_module_to_pt2_exporter/`: in-memory
+  `torch.nn.Module` export package and plugin registration.
+- `src/mlia/backend/mlia_pytorch_to_pte_converter/`: PTE conversion package and
+  plugin registration.
+- `src/mlia/backend/mlia_pte_to_delegate_converter/`: PTE delegate payload
+  extraction package and plugin registration.
+- `src/mlia/backend/executorch/`: `etrecord.py` extracts method and source
+  relationships; `etdump.py` reads events and opaque delegate metadata into the
+  SDK-independent data types in `capture.py`. Measurement attribution, timing
+  aggregation, hardware-specific decoding and metric construction belong to
+  target plugins. This library registers no additional transformer or backend.
+- `tests/`: unit tests for converter registration and conversion behaviour.
+- `pre_commit_hooks/`: local repository hooks shared with CI quality checks.
+- `pyproject.toml`: package dependencies and build configuration.
+
 ## Reporting bugs
 
 Report bugs by creating GitHub issues. Use the
@@ -206,8 +230,6 @@ uv build --wheel
 
 ## Documentation
 
-[Read the documentation on Arm Developer](https://developer.arm.com/dev-docs/mlia-converters-pytorch/).
-
 - [Documentation overview](docs/README.md): how to build and preview the docs.
 - [Usage and integration](docs/source/usage.md): transformer names, MLIA
   discovery, and route selection.
@@ -234,24 +256,3 @@ This project is licensed under the Apache License 2.0. See
 - PyTorch and ExecuTorch are trademarks of The Linux Foundation.
 - Linux is the registered trademark of Linus Torvalds in the U.S. and elsewhere.
 - Python is a registered trademark of the PSF.
-
-## Shared ExecuTorch artifact processing
-
-This package also prepares deployed ExecuTorch artifacts for MLIA analysis. Its
-scope includes model conversion and extraction, ETRecord/ETDump reading,
-method-local recorded identities and relationships, raw timing samples and opaque
-PTE delegate indexing. It does not register a target or hardware execution backend.
-VGF payload decoding and NX metrics belong to `mlia-neural-technology`; future
-Ethos-U-specific profiling belongs to `mlia-ethos-u`.
-
-- `ETRecordIndex.source_graph()` publishes canonical nodes and dataflow edges.
-- `ETDumpReader` resolves handles once and preserves opaque delegate metadata.
-- `read_profiling_capture()` returns SDK-independent data for target analysis.
-- `PTEReader` indexes all methods and delegate calls without decoding payloads.
-
-The target plugin classifies source operators, projects dataflow onto its analysis
-entities, decides measurement attribution and aggregation, and adds
-decoded observations and artifact relationships to the
-standardized output. Core CLI and Python callers receive those facts before
-optional Model Explorer rendering. See the
-[analysis contract](docs/source/development.md#analysis-contract).
