@@ -6,9 +6,9 @@
   "start": "/usage",
   "focus": [
     {
-      "title": "Choose your integration",
-      "description": "Use MLIA to discover and run the registered transformers.",
-      "to": "/usage"
+      "title": "Pair with a target plugin",
+      "description": "Install a target plugin for the hardware you want to analyze, then add these converters for PyTorch inputs.",
+      "to": "https://developer.arm.com/dev-docs/mlia/documentation/#targets-converters-and-visualization"
     },
     {
       "title": "Choose a conversion route",

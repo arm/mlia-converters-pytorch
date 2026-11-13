@@ -54,7 +54,10 @@ installation metadata used by MLIA.
 
 ## Installation
 
-Install the package into an environment that already contains `mlia`:
+Install a [target plugin](https://developer.arm.com/dev-docs/mlia/documentation/#targets-converters-and-visualization)
+for your hardware first; it installs MLIA as a dependency. Add this converter
+in the same environment only when your workflow needs PyTorch conversion. The
+converter alone does not provide target-specific analysis.
 
 ```bash
 pip install mlia-converters-pytorch

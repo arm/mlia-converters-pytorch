@@ -6,6 +6,17 @@ sidebar_position: 2
 
 # Usage and Integration
 
+## Installation
+
+Start with a [target plugin](https://developer.arm.com/dev-docs/mlia/documentation/#targets-converters-and-visualization)
+for the hardware you want to analyze. It installs MLIA as a dependency. Add this
+converter in the same Python environment only if your workflow needs PyTorch
+conversion. A converter alone cannot provide target-specific analysis.
+
+```bash
+pip install mlia-converters-pytorch
+```
+
 ## Overview
 
 This package registers four transformer names through the
@@ -27,9 +38,10 @@ This repo uses two names that matter in different places:
 
 ## Operational model
 
-The repository is designed to be installed alongside `mlia`, not used as a
-standalone CLI tool. Once installed, MLIA can discover the transformers and
-route conversion requests through the shared transformer registry.
+This package adds conversion to an MLIA workflow with a target plugin. It does
+not provide a standalone analysis command. Once installed, MLIA can discover
+the transformers and route conversion requests through the shared transformer
+registry.
 
 ## Typical workflow
 
