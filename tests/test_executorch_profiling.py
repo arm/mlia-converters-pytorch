@@ -350,3 +350,56 @@ def test_missing_devtools_has_actionable_error(monkeypatch):
     capture = ETDumpReader(Path("run.etdump"), Path("model.etrecord"), "forward")
     with pytest.raises(RuntimeError, match="mlia-converters-pytorch"):
         list(capture.events())
+
+
+def test_runtime_capture_round_trip_preserves_recorded_types():
+    """A JSON subprocess handoff preserves opaque metadata and numeric indexes."""
+    from mlia.backend.executorch.capture import ETDumpEvent, ProfilingCapture
+    from mlia.backend.executorch.capture import capture_from_json, capture_to_json
+
+    event = ETDumpEvent(
+        "forward",
+        "block",
+        0,
+        1,
+        "delegate",
+        2,
+        "backend",
+        (7,),
+        "id",
+        (b"\x00\xff", "text", None),
+        (1.5,),
+    )
+    capture = ProfilingCapture(
+        "forward",
+        "/model.etrecord",
+        "/run.etdp",
+        (event,),
+        {"nodes": []},
+        {7: [{"graph_index": 0}]},
+        {2: (7,)},
+    )
+    assert (
+        capture_from_json(json.loads(json.dumps(capture_to_json(capture)))) == capture
+    )
+
+
+def test_active_artifact_session_checks_consumer_schema(monkeypatch):
+    """An existing session must not bypass the reader's contract check."""
+    from types import SimpleNamespace
+    from mlia.backend.executorch.execution import read_profiling_capture
+    from mlia.core.errors import ConfigurationError
+
+    definition = SimpleNamespace(
+        data={
+            "operations": {
+                "pytorch/read-artifacts": {"result_schema": "executorch-artifacts/2"}
+            }
+        }
+    )
+    session = SimpleNamespace(
+        profile=SimpleNamespace(stages={"read": ("pytorch/read-artifacts", definition)})
+    )
+    monkeypatch.setattr("mlia.runtime.session.current_session", lambda: session)
+    with pytest.raises(ConfigurationError, match="incompatible"):
+        read_profiling_capture(Path("run.etdump"), Path("model.etrecord"))

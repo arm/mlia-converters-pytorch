@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
+from mlia.plugins.plugins import Plugin
+from mlia.runtime.transformer import RuntimeTransformer
+from mlia.transformers.registry import Transformer
+from mlia.utils.registry import Registry
+
 from mlia.backend.mlia_pytorch_to_pte_converter.conversion import (
     MliaPytorchToPteConverter,
 )
-from mlia.plugins.plugins import Plugin
-from mlia.transformers.registry import Transformer
-from mlia.utils.registry import Registry
 
 
 class PT2ToPteConverterPlugin(Plugin):
@@ -20,4 +22,7 @@ class PT2ToPteConverterPlugin(Plugin):
     @staticmethod
     def register(registry: Registry[Transformer]) -> None:
         """Register the converter with the registry."""
-        registry.register("pt2_to_pte", MliaPytorchToPteConverter())
+        registry.register(
+            "pt2_to_pte",
+            RuntimeTransformer(MliaPytorchToPteConverter(), "pytorch/pt2-to-pte"),
+        )

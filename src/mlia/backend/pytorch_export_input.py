@@ -17,7 +17,9 @@ def load_exported_program(torch_module: Any, pytorch_file: Path) -> ExportedProg
         return torch_module.export.load(pytorch_file)
     except Exception as exc:
         raise ValueError(
-            f"Failed to load PyTorch export file {pytorch_file}: {exc}"
+            f"Failed to load PyTorch export file {pytorch_file}: {exc}. "
+            "The selected runtime options may be incompatible with the export. "
+            "Choose a runtime supporting the caller's PyTorch export version."
         ) from exc
 
 

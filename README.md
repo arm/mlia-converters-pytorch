@@ -69,9 +69,16 @@ For source-based development with `uv`:
 uv sync --group dev
 ```
 
-The project supports the Python versions declared in `pyproject.toml` and
-installs the PyTorch-side dependencies listed there, including `torch`,
-`executorch`, and `torchao`.
+MLIA installs the selected converter and its dependencies, including PyTorch and
+ExecuTorch, in a separate environment on first use. Installing this plugin does
+not install those dependencies in your MLIA environment.
+
+Use `mlia backend list --runtimes` to inspect available converter versions and
+`--show-plan` on a check to preview the selected conversions. To choose a different
+toolchain, pass an execution profile with `--execution-profile`.
+
+Exporting a live `torch.nn.Module` still requires PyTorch in the calling application;
+use an already exported `.pt2` file to keep the frontend free of PyTorch.
 
 ## How MLIA uses this plugin
 
@@ -101,13 +108,15 @@ For more implementation detail, see [docs/README.md](docs/README.md).
 
 ### Shared ETRecord and ETDump readers
 
-Target integrations can read an ETRecord and its matching ETDump once and
-consume a detached, delegate-neutral capture:
+Use the functions below to read ETRecord/ETDump captures without installing
+ExecuTorch in the calling environment. They use the check's selected runtime, or
+`MLIA_EXECUTION_PROFILE` when called independently. Without either selection,
+MLIA uses the packaged `arm/pytorch/artifacts` profile and installs it on first use.
 
 ```python
 from pathlib import Path
 
-from mlia.backend.executorch.etdump import read_profiling_capture
+from mlia.backend.executorch.execution import read_profiling_capture
 
 capture = read_profiling_capture(
     etdump_path=Path("run.etdump"),

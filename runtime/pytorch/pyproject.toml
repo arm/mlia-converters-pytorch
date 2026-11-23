@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright 2026, Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning", "mlia>=0.13.2.dev4,<0.14.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mlia-runtime-pytorch"
+dynamic = ["version"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch==2.14.0+cpu",
+    "executorch==1.5.1",
+    "torchao==0.18.0",
+    "ethos-u-vela==5.2.0",
+    "tosa-tools==2026.2.1",
+    "ml-dtypes==0.5.1",
+    "rich==13.7.1"
+]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"../../LICENSES/Apache-2.0.txt" = "mlia_runtime_assets/resources/licenses/Apache-2.0.txt"
+
+[tool.hatch.build.hooks.custom]
+path = "../package_hook.py"
+modules = ["mlia.backend.executorch.worker"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+dirty = true
+bump = true
+
+[tool.mlia.runtime]
+id = "arm/pytorch/public"
+python = "3.12"
+architectures = ["x86_64"]
+indexes = ["https://download.pytorch.org/whl/cpu"]
+
+[tool.mlia.runtime.operations."pytorch/pt2-to-tosa"]
+entrypoint = "mlia.backend.executorch.worker:run"
+result_schema = "model/1"
+
+[tool.mlia.runtime.operations."pytorch/pt2-to-pte"]
+entrypoint = "mlia.backend.executorch.worker:run"
+result_schema = "model/1"
+
+[tool.mlia.runtime.operations."pytorch/pte-to-delegate"]
+entrypoint = "mlia.backend.executorch.worker:run"
+result_schema = "model/1"
+
+[tool.mlia.runtime.operations."pytorch/read-artifacts"]
+entrypoint = "mlia.backend.executorch.worker:run"
+result_schema = "executorch-artifacts/1"

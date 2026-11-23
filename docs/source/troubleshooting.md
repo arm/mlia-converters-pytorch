@@ -79,8 +79,8 @@ When a PyTorch-driven run fails:
 
 ### PTE delegate extraction fails
 
-- Confirm the active environment contains compatible ExecuTorch PTE
-  deserialization support.
+- Check that the selected runtime contains an ExecuTorch version compatible with
+  the model. Use `--show-plan` to inspect the selection.
 - Confirm the input is a serialized ExecuTorch `.pte` artifact, not an
   arbitrary binary file.
 - The current extractor expects exactly one execution plan and exactly one
@@ -100,10 +100,16 @@ When a PyTorch-driven run fails:
 
 ### PyTorch-side dependency mismatch
 
-- Recreate the environment and reinstall dependencies from the repo's declared
-  configuration.
-- Check whether the active environment contains the expected versions of
-  `torch`, `executorch`, and related packages.
+- PyTorch and ExecuTorch belong in the selected runtime environment. Find it with
+  `mlia backend list --runtimes`, then inspect its packages with
+  `uv pip list --python /path/to/runtime/venv/bin/python`.
+- Repair that installation using `mlia backend install RUNTIME_NAME --force`,
+  replacing `RUNTIME_NAME` with its full name from the listing.
+- If an exported model requires a different toolchain, select a compatible
+  `--execution-profile`. Reinstalling frontend packages does not change the
+  versions selected by a profile.
+- Exporting a live `torch.nn.Module` additionally requires PyTorch in the calling
+  application's environment.
 
 ## Escalation path
 

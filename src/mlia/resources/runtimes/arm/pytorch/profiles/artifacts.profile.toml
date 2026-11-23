@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Copyright 2026, Arm Limited and/or its affiliates.
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version = 1
+id = "arm/pytorch/artifacts"
+
+[stages.artifacts]
+operation = "pytorch/read-artifacts"
+runtime = "arm/pytorch/public@{version}"
+provider_package = "mlia-converters-pytorch"

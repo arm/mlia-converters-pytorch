@@ -20,7 +20,12 @@ class NNModuleToPt2Exporter:
     @staticmethod
     def _get_torch() -> Any:
         """Resolve torch at call time so tests and plugin loading stay in sync."""
-        return importlib.import_module("torch")
+        try:
+            return importlib.import_module("torch")
+        except ImportError as exc:
+            raise ConfigurationError(
+                "Live model export requires PyTorch in the caller environment."
+            ) from exc
 
     def _correct_kwargs(self, kwargs: dict[str, Any]) -> bool:
         """Return whether kwargs match the exporter's required signature."""
@@ -43,8 +48,11 @@ class NNModuleToPt2Exporter:
         kwargs: dict[str, Any],
     ) -> bool:
         """Return whether this exporter can handle the given model."""
-        torch = self._get_torch()
-        if target_format != "pt2":
+        if target_format != "pt2" or isinstance(model, (str, Path)):
+            return False
+        try:
+            torch = self._get_torch()
+        except ConfigurationError:
             return False
         if not isinstance(model, torch.nn.Module):
             return False

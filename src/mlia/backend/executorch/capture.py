@@ -7,7 +7,8 @@ order within each block; separate blocks do not establish aligned executions.
 Recorded handle relationships express identity, not measurement attribution.
 """
 
-from dataclasses import dataclass
+import base64
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
@@ -58,3 +59,46 @@ class ProfilingCapture:
             ),
             key=lambda node: node["graph_index"],
         )
+
+
+def capture_to_json(capture: ProfilingCapture) -> dict[str, Any]:
+    """Encode opaque byte metadata without altering text or missing values."""
+    data = asdict(capture)
+    for event in data["events"]:
+        event["raw_delegate_metadata"] = [
+            {"base64": base64.b64encode(value).decode("ascii")}
+            if isinstance(value, bytes)
+            else value
+            for value in event["raw_delegate_metadata"]
+        ]
+    return data
+
+
+def capture_from_json(data: dict[str, Any]) -> ProfilingCapture:
+    """Restore the provider's version-one detached capture contract."""
+    events = []
+    for item in data["events"]:
+        event = dict(item)
+        event["raw_delegate_metadata"] = tuple(
+            base64.b64decode(value["base64"], validate=True)
+            if isinstance(value, dict)
+            else value
+            for value in event["raw_delegate_metadata"]
+        )
+        event["debug_handles"] = tuple(event["debug_handles"])
+        if event["samples"] is not None:
+            event["samples"] = tuple(event["samples"])
+        events.append(ETDumpEvent(**event))
+    return ProfilingCapture(
+        method=data["method"],
+        etrecord_path=data["etrecord_path"],
+        etdump_path=data["etdump_path"],
+        events=tuple(events),
+        source_graph=data["source_graph"],
+        nodes_by_handle={
+            int(key): value for key, value in data["nodes_by_handle"].items()
+        },
+        instruction_handles={
+            int(key): tuple(value) for key, value in data["instruction_handles"].items()
+        },
+    )

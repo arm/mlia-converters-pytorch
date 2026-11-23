@@ -4,13 +4,14 @@
 
 from __future__ import annotations
 
+from mlia.plugins.plugins import Plugin
+from mlia.runtime.transformer import RuntimeTransformer
+from mlia.transformers.registry import Transformer
+from mlia.utils.registry import Registry
+
 from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
     MliaPytorchToTosaConverter,
 )
-from mlia.plugins.plugins import Plugin
-
-from mlia.transformers.registry import Transformer
-from mlia.utils.registry import Registry
 
 
 class PT2ToTosaConverterPlugin(Plugin):
@@ -21,4 +22,7 @@ class PT2ToTosaConverterPlugin(Plugin):
     @staticmethod
     def register(registry: Registry[Transformer]) -> None:
         """Register the converter with the registry."""
-        registry.register("pt2_to_tosa", MliaPytorchToTosaConverter())
+        registry.register(
+            "pt2_to_tosa",
+            RuntimeTransformer(MliaPytorchToTosaConverter(), "pytorch/pt2-to-tosa"),
+        )

@@ -281,3 +281,19 @@ def test_transform_model_exports_nn_module_with_new_registry_api(
     assert saved["args"] == (1, 2)
     assert saved["exported"] == "exported-program"
     assert saved["output_path"] == tmp_path / "model.pt2"
+
+
+def test_exporter_does_not_import_torch_for_file_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unavailable file conversion must not load caller-side Torch."""
+    _clear_exporter_modules()
+    _install_fake_mlia_modules(monkeypatch)
+    exporter_module = importlib.import_module(EXPORTER_MODULE)
+    exporter = exporter_module.NNModuleToPt2Exporter()
+
+    def unexpected_import() -> None:
+        raise AssertionError("File capability checks must not import Torch")
+
+    monkeypatch.setattr(exporter, "_get_torch", unexpected_import)
+    assert not exporter.supports(Path("model.onnx"), "pt2", {})

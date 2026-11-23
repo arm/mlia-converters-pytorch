@@ -3,6 +3,7 @@
 
 [build-system]
 requires = [
+    "mlia>=0.13.2.dev4,<0.14.0",
     "hatchling==1.32.0",
     "uv-dynamic-versioning==0.14.1"
 ]
@@ -28,15 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
-dependencies = [
-    "mlia>=0.13.0,<0.14",
-    "torch==2.14.0",
-    "executorch==1.5.1",
-    "torchao==0.18.0",
-    "ethos-u-vela==5.2.0",
-    "tosa-tools==2026.2.1",
-    "ml-dtypes==0.5.1"
-]
+dependencies = ["mlia>=0.13.2.dev4,<0.14.0"]
 
 [project.urls]
 Homepage = "https://github.com/arm/mlia-converters-pytorch.git"
@@ -46,6 +39,24 @@ pt2_to_tosa = "mlia.backend.mlia_pytorch_to_tosa_converter.converter_plugin:PT2T
 nn_module_to_pt2 = "mlia.backend.mlia_nn_module_to_pt2_exporter.exporter_plugin:NNModuleToPt2ExporterPlugin"
 pt2_to_pte = "mlia.backend.mlia_pytorch_to_pte_converter.converter_plugin:PT2ToPteConverterPlugin"
 pte_to_delegate = "mlia.backend.mlia_pte_to_delegate_converter.converter_plugin:PteToDelegateConverterPlugin"
+
+[tool.uv]
+# Editable wheels contain generated runtime bundles. Track their authored inputs,
+# excluding build/ and runtime/inputs so preparation does not invalidate itself.
+cache-keys = [
+    {file = "pyproject.toml"},
+    {file = "hatch_build.py"},
+    {file = "runtime/*.py"},
+    {file = "runtime/*.json"},
+    {file = "runtime/*/pyproject.toml"},
+    {file = "src/mlia/**/*.py"},
+    {file = "src/mlia/resources/**/*"},
+    {file = "LICENSES/*.txt"},
+    {file = "src/mlia/_vendor/**/.sha256*"},
+    {file = "src/mlia/_vendor/**/*.toml"},
+    {file = "src/mlia/_vendor/**/license_terms/**/*.txt"},
+    {git = {commit = true, tags = true}}
+]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -61,18 +72,24 @@ source = "uv-dynamic-versioning"
 [tool.hatch.metadata.hooks.custom]
 path = "hatch_build.py"
 
+[tool.hatch.build.hooks.custom]
+path = "runtime/hatch_runtime.py"
+
 [tool.hatch.build.targets.wheel]
 # Include implicit namespace packages under src/.
 only-include = ["src/mlia"]
 sources = ["src"]
+exclude = ["src/mlia/**/worker.py", "src/mlia/resources/runtimes/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/mlia/**",
+    "runtime/**",
     "LICENSES/*.txt",
     "README.md",
     "pyproject.toml"
 ]
+exclude = ["src/mlia/resources/runtimes/**"]
 
 [tool.uv-dynamic-versioning]
 vcs = "git"
@@ -96,8 +113,21 @@ skip_files = ["LICENSES/Apache-2.0.txt", "docs/source/conf.py", "pyproject.toml"
 ignore_missing_imports = true
 explicit_package_bases = true
 
+# Worker code is exercised by installed-runtime E2E tests, outside frontend coverage.
+[tool.coverage.run]
+omit = ["*/worker.py"]
+
 [dependency-groups]
+worker = [
+    "torch==2.14.0",
+    "executorch==1.5.1",
+    "torchao==0.18.0",
+    "ethos-u-vela==5.2.0",
+    "tosa-tools==2026.2.1",
+    "ml-dtypes==0.5.1"
+]
 test = [
+    {include-group = "worker"},
     "hatchling==1.32.0",
     "pytest==9.1.1",
     "flaky==3.8.1",

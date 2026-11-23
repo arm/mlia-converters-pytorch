@@ -16,3 +16,8 @@ report
 uv.lock
 src/mlia/_vendor/artifacts/**/*.whl
 .mkdocs/site
+
+# Runtime archives are generated; recipes and dependency locks are tracked.
+src/mlia/resources/runtimes/**/*.tar.gz
+
+/runtime/inputs/

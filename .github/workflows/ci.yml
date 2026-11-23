@@ -81,7 +81,7 @@ jobs:
       - run: uv sync --group test
       - run: |
           set -o pipefail
-          uv run pytest --no-success-flaky-report -m "not slow" tests/ | tee coverage.txt
+          uv run --no-sync pytest --no-success-flaky-report -m "not slow" tests/ | tee coverage.txt
       - name: Publish coverage summary
         run: |
           {
