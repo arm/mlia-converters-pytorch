@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning", "mlia>=0.13.2.dev4,<0.14.0"]
+requires = ["hatchling", "uv-dynamic-versioning", "mlia>=0.13.2.dev9,<0.14.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -40,22 +40,27 @@ bump = true
 
 [tool.mlia.runtime]
 id = "arm/pytorch/public"
+label = "PyTorch conversion runtime"
 python = "3.12"
 architectures = ["x86_64"]
 indexes = ["https://download.pytorch.org/whl/cpu"]
 
 [tool.mlia.runtime.operations."pytorch/pt2-to-tosa"]
+label = "PyTorch to TOSA conversion"
 entrypoint = "mlia.backend.executorch.worker:run"
 result_schema = "model/1"
 
 [tool.mlia.runtime.operations."pytorch/pt2-to-pte"]
+label = "PyTorch to ExecuTorch conversion"
 entrypoint = "mlia.backend.executorch.worker:run"
 result_schema = "model/1"
 
 [tool.mlia.runtime.operations."pytorch/pte-to-delegate"]
+label = "ExecuTorch delegate conversion"
 entrypoint = "mlia.backend.executorch.worker:run"
 result_schema = "model/1"
 
 [tool.mlia.runtime.operations."pytorch/read-artifacts"]
+label = "ExecuTorch artifact reader"
 entrypoint = "mlia.backend.executorch.worker:run"
 result_schema = "executorch-artifacts/1"
