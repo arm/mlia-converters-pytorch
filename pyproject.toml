@@ -99,6 +99,7 @@ bump = true
 fallback-version = "0.0.0.dev0"
 
 [tool.pytest.ini_options]
+addopts = ["--ignore=tests/e2e"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 

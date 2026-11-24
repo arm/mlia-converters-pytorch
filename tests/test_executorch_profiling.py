@@ -403,3 +403,40 @@ def test_active_artifact_session_checks_consumer_schema(monkeypatch):
     monkeypatch.setattr("mlia.runtime.session.current_session", lambda: session)
     with pytest.raises(ConfigurationError, match="incompatible"):
         read_profiling_capture(Path("run.etdump"), Path("model.etrecord"))
+
+
+@pytest.mark.parametrize("accepted", [True, False])
+def test_standalone_reader_respects_profile_inputs(tmp_path, monkeypatch, accepted):
+    """Read a matching conditional stage; reject a profile excluding the input."""
+    from contextlib import contextmanager
+    from mlia.runtime.catalog import load_profile
+    from mlia.core.errors import ConfigurationError
+    from mlia.backend.executorch.execution import read_pte_artifact
+
+    default = load_profile("arm/pytorch/artifacts")
+    _, definition = next(iter(default.stages.values()))
+    profile = tmp_path / "reader.toml"
+    profile.write_text(
+        'schema_version = 1\nid = "test/reader"\n'
+        + ('inputs = ["pte"]\n' if accepted else 'inputs = ["etrecord"]\n')
+        + '[stages.reader]\noperation = "pytorch/read-artifacts"\n'
+        + f'runtime = "{definition.name}"\n'
+        + ('inputs = ["pte"]\n' if accepted else "")
+    )
+    monkeypatch.setenv("MLIA_EXECUTION_PROFILE", str(profile))
+
+    @contextmanager
+    def execute(*args, **kwargs):
+        assert accepted, "An incompatible profile must not provision a runtime"
+        yield
+
+    monkeypatch.setattr("mlia.runtime.session.execution_session", execute)
+    monkeypatch.setattr(
+        "mlia.runtime.session.invoke",
+        lambda *args: {"payload": {"delegates": [], "metadata": {}}, "artifacts": []},
+    )
+    if accepted:
+        assert read_pte_artifact(tmp_path / "model.pte") == ([], {})
+    else:
+        with pytest.raises(ConfigurationError, match="does not accept"):
+            read_pte_artifact(tmp_path / "model.pte")

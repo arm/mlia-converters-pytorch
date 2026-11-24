@@ -17,7 +17,7 @@ from mlia.backend.executorch.pte import PTEDelegate
 
 
 @contextmanager
-def _artifact_session() -> Iterator[None]:
+def _artifact_session(model: Path) -> Iterator[None]:
     """Reuse the caller's selection or provision the provider's reader default."""
     from mlia.runtime.catalog import load_profile
     from mlia.runtime.session import current_session, execution_session
@@ -28,9 +28,16 @@ def _artifact_session() -> Iterator[None]:
         session.profile
         if session is not None
         else load_profile(
-            os.environ.get("MLIA_EXECUTION_PROFILE") or "arm/pytorch/artifacts"
+            os.environ.get("MLIA_EXECUTION_PROFILE") or "arm/pytorch/artifacts",
+            model=model,
         )
     )
+    if (
+        session is None
+        and profile.data.get("inputs")
+        and model.suffix.lower().lstrip(".") not in profile.data["inputs"]
+    ):
+        raise ConfigurationError(f"Execution profile does not accept {model.suffix}")
     operation = "pytorch/read-artifacts"
     definitions = {op: definition for op, definition in profile.stages.values()}
     if (
@@ -59,7 +66,7 @@ def read_profiling_capture(
     """Read a capture through the selected runtime, retaining analysis in the caller."""
     from mlia.runtime.session import invoke
 
-    with _artifact_session():
+    with _artifact_session(etrecord_path):
         result = invoke(
             "pytorch/read-artifacts",
             {
@@ -79,7 +86,7 @@ def read_pte_artifact(path: Path) -> tuple[list[PTEDelegate], dict[str, Any]]:
     """Read deployed delegates through the runtime using declared payload files."""
     from mlia.runtime.session import invoke
 
-    with _artifact_session():
+    with _artifact_session(path):
         result = invoke("pytorch/read-artifacts", {"pte": str(path.resolve())})
         try:
             data = result["payload"]

@@ -6,6 +6,23 @@ sidebar_position: 7
 
 # Development
 
+## Installed-runtime tests
+
+Build the wheel with `uv build --wheel`, then run from the repository root in
+a separate frontend environment:
+
+```bash
+uv venv --python 3.12 report/runtime-frontend
+uv pip install --python report/runtime-frontend/bin/python dist/*.whl pytest
+uv run --no-project --python report/runtime-frontend/bin/python python -m pytest \
+  -c tests/e2e/pytest.ini tests/e2e --model MODEL.pt2 \
+  --basetemp=report/runtime-e2e
+```
+
+This checks runtime execution and frontend dependency isolation. The separate
+pytest configuration uses the installed wheel and excludes unit-test fixtures
+and coverage settings. Normal unit-test runs do not collect these tests.
+
 ## What counts as development in this repo
 
 This repository owns a converter stage inside the wider MLIA pipeline. Most

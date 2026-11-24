@@ -2,32 +2,35 @@
 # SPDX-License-Identifier: Apache-2.0
 """Convert PyTorch models and extract profiling data inside the worker environment."""
 
+import importlib
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 
+_CONVERTERS = {
+    "pytorch/pt2-to-tosa": (
+        "mlia.backend.mlia_pytorch_to_tosa_converter.conversion",
+        "MliaPytorchToTosaConverter",
+    ),
+    "pytorch/pt2-to-pte": (
+        "mlia.backend.mlia_pytorch_to_pte_converter.conversion",
+        "MliaPytorchToPteConverter",
+    ),
+    "pytorch/pte-to-delegate": (
+        "mlia.backend.mlia_pte_to_delegate_converter.conversion",
+        "MliaPteToDelegateConverter",
+    ),
+}
+
+
 def run(request: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Convert one serialized model using the selected dependency environment."""
+    """Convert one model or read its recorded artifacts in the runtime."""
     if request["operation"] == "pytorch/read-artifacts":
         return collect_artifacts(request)
-    from mlia.backend.mlia_pte_to_delegate_converter.conversion import (
-        MliaPteToDelegateConverter,
-    )
-    from mlia.backend.mlia_pytorch_to_pte_converter.conversion import (
-        MliaPytorchToPteConverter,
-    )
-    from mlia.backend.mlia_pytorch_to_tosa_converter.conversion import (
-        MliaPytorchToTosaConverter,
-    )
-
-    converters = {
-        "pytorch/pt2-to-tosa": MliaPytorchToTosaConverter,
-        "pytorch/pt2-to-pte": MliaPytorchToPteConverter,
-        "pytorch/pte-to-delegate": MliaPteToDelegateConverter,
-    }
+    module_name, class_name = _CONVERTERS[request["operation"]]
+    converter = getattr(importlib.import_module(module_name), class_name)()
     payload = request["payload"]
-    converter = converters[request["operation"]]()
     model = Path(payload["model"])
     output = converter(model, Path(request["output_dir"]), **payload.get("options", {}))
     return {}, [
@@ -41,8 +44,6 @@ def run(request: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
 def validate_runtime(request: dict[str, Any]) -> None:
     """Ensure the selected converter dependencies import before marking ready."""
-    import importlib
-
     if request["operation"] == "pytorch/read-artifacts":
         importlib.import_module("executorch.devtools.etrecord")
         importlib.import_module("executorch.devtools.inspector")
@@ -50,12 +51,8 @@ def validate_runtime(request: dict[str, Any]) -> None:
             "mlia.backend.mlia_pte_to_delegate_converter.conversion"
         )._get_deps()
         return
-    modules = {
-        "pytorch/pt2-to-tosa": "mlia.backend.mlia_pytorch_to_tosa_converter.conversion",
-        "pytorch/pt2-to-pte": "mlia.backend.mlia_pytorch_to_pte_converter.conversion",
-        "pytorch/pte-to-delegate": "mlia.backend.mlia_pte_to_delegate_converter.conversion",
-    }
-    importlib.import_module(modules[request["operation"]])._get_deps()
+    module_name, _ = _CONVERTERS[request["operation"]]
+    importlib.import_module(module_name)._get_deps()
 
 
 def collect_artifacts(

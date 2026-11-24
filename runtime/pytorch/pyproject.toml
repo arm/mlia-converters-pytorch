@@ -30,7 +30,13 @@ bypass-selection = true
 
 [tool.hatch.build.hooks.custom]
 path = "../package_hook.py"
-modules = ["mlia.backend.executorch.worker"]
+# Converter modules are loaded on demand by the worker.
+modules = [
+    "mlia.backend.executorch.worker",
+    "mlia.backend.mlia_pytorch_to_tosa_converter.conversion",
+    "mlia.backend.mlia_pytorch_to_pte_converter.conversion",
+    "mlia.backend.mlia_pte_to_delegate_converter.conversion"
+]
 
 [tool.uv-dynamic-versioning]
 vcs = "git"
