@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning", "mlia>=0.13.2.dev9,<0.14.0"]
+requires = ["hatchling", "uv-dynamic-versioning", "mlia>=0.14.0,<0.15.0"]
 build-backend = "hatchling.build"
 
 [project]

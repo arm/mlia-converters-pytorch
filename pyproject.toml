@@ -3,7 +3,7 @@
 
 [build-system]
 requires = [
-    "mlia>=0.13.2.dev9,<0.14.0",
+    "mlia>=0.14.0,<0.15.0",
     "hatchling==1.32.0",
     "uv-dynamic-versioning==0.14.1"
 ]
@@ -29,7 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
-dependencies = ["mlia>=0.13.2.dev9,<0.14.0"]
+dependencies = ["mlia>=0.14.0,<0.15.0"]
 
 [project.urls]
 Homepage = "https://github.com/arm/mlia-converters-pytorch.git"
